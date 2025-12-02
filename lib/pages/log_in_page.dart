@@ -1,4 +1,3 @@
-import 'package:expense_tracker_3_0/pages/dashboard_page.dart';
 import 'package:expense_tracker_3_0/pages/register_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,7 +19,7 @@ class _LoginPageState extends State<LoginPage> {
     final password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-       ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter both email and password')),
       );
       return;
@@ -28,20 +27,9 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       setState(() => isLoading = true);
-      
-      // 1. Log in with Firebase
       await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
-
-      // 2. FORCE NAVIGATION (This fixes the "nothing happens" issue)
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context, 
-        MaterialPageRoute(builder: (_) => const DashboardPage())
-      );
-
     } on FirebaseAuthException catch (e) {
       if(!mounted) return;
-      // Show exact error message from Firebase
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(e.message ?? 'Login failed'),
         backgroundColor: Colors.red,
@@ -55,62 +43,82 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE7FFF2),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.favorite_border, color: Color(0xFF00A86B), size: 60),
-              const SizedBox(height: 20),
-              const Text("Welcome Back", style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 24),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(
-                  labelText: "Email", 
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white
+      // Added AppBar to match RegisterPage spacing, but hid the back button
+      appBar: AppBar(
+        backgroundColor: Colors.transparent, 
+        elevation: 0,
+        automaticallyImplyLeading: false, // No back button
+      ),
+      // Removed Center, used Padding identical to RegisterPage
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        child: Column(
+          children: [
+            const Text(
+              "Welcome Back",
+              style: TextStyle(
+                fontSize: 28, 
+                fontWeight: FontWeight.bold,
+                color: Colors.black87
+              ),
+            ),
+            const SizedBox(height: 40),
+            
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: "Email",
+                labelStyle: TextStyle(color: Colors.black54),
+                prefixIcon: Icon(Icons.email, color: Colors.black54),
+                border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00A86B), width: 2)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: "Password",
+                labelStyle: TextStyle(color: Colors.black54),
+                prefixIcon: Icon(Icons.lock, color: Colors.black54),
+                border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00A86B), width: 2)),
+              ),
+            ),
+            const SizedBox(height: 40),
+            
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isLoading ? null : _login,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00A86B), 
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: const StadiumBorder(),
+                  elevation: 0,
                 ),
+                child: isLoading 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                  : const Text("Sign In", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: "Password", 
-                  prefixIcon: Icon(Icons.lock),
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white
-                ),
+            ),
+            const SizedBox(height: 16),
+            
+            TextButton(
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterPage()));
+              },
+              child: const Text(
+                "Don't have an account? Register",
+                style: TextStyle(color: Color(0xFF6A5ACD)),
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : _login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00A86B), 
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: isLoading 
-                    ? const CircularProgressIndicator(color: Colors.white) 
-                    : const Text("Sign In", style: TextStyle(fontSize: 16)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterPage()));
-                },
-                child: const Text("Don't have an account? Register"),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

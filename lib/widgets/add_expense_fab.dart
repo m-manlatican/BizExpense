@@ -1,7 +1,8 @@
 import 'package:expense_tracker_3_0/models/all_expense_model.dart';
 import 'package:expense_tracker_3_0/pages/add_expense_page.dart';
 import 'package:flutter/material.dart';
-import '../firestore_functions.dart'; // import Firestore functions
+import 'package:cloud_firestore/cloud_firestore.dart'; 
+import '../firestore_functions.dart';
 
 typedef ExpenseCallback = void Function(Expense expense);
 
@@ -25,7 +26,7 @@ class AddExpenseFab extends StatelessWidget {
       backgroundColor: backgroundColor,
       child: Icon(icon, color: Colors.white, size: iconSize),
       onPressed: () async {
-        // Open AddExpensePage
+        // Open AddExpensePage to get user input
         final data = await Navigator.push<Map<String, dynamic>?>(
           context,
           MaterialPageRoute(builder: (context) => const AddExpensePage()),
@@ -41,6 +42,10 @@ class AddExpenseFab extends StatelessWidget {
                 ? data["amount"]
                 : double.tryParse('${data["amount"]}') ?? 0.0,
             dateLabel: data["dateLabel"] ?? '',
+            
+            // 🔥 2. THE FIX: Provide the required Timestamp
+            date: Timestamp.now(), 
+            
             notes: data["notes"] ?? '',
             iconCodePoint: Icons.receipt_long.codePoint,
             iconColorValue: const Color(0xFF30D177).value,

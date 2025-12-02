@@ -37,8 +37,6 @@ class _RegisterPageState extends State<RegisterPage> {
       });
 
       // 3. SUCCESS
-      // Because we used Navigator.push to get here from Login, we pop back.
-      // The AuthGate (which is listening) will notice we are logged in now and show Dashboard.
       if (!mounted) return;
       Navigator.pop(context); 
 
@@ -53,40 +51,89 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE7FFF2),
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const Text("Create Account", style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 24),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: "Full Name", prefixIcon: Icon(Icons.person)),
+      // AppBar ensures the "body" starts at the same vertical offset as other pages
+      appBar: AppBar(
+        backgroundColor: Colors.transparent, 
+        elevation: 0,
+        // Back button is black to match the theme
+        iconTheme: const IconThemeData(color: Colors.black54),
+      ),
+      // Removed "Center" so the title stays at a fixed top position
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        child: Column(
+          children: [
+            const Text(
+              "Create Account", 
+              style: TextStyle(
+                fontSize: 28, // Matches Login Page
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: "Email", prefixIcon: Icon(Icons.email)),
+            ),
+            const SizedBox(height: 40),
+            
+            // Full Name
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: "Full Name",
+                labelStyle: TextStyle(color: Colors.black54),
+                prefixIcon: Icon(Icons.person, color: Colors.black54),
+                border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00A86B), width: 2)),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: "Password", prefixIcon: Icon(Icons.lock)),
+            ),
+            const SizedBox(height: 20),
+            
+            // Email
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: "Email",
+                labelStyle: TextStyle(color: Colors.black54),
+                prefixIcon: Icon(Icons.email, color: Colors.black54),
+                border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00A86B), width: 2)),
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : _register,
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00A86B), foregroundColor: Colors.white),
-                  child: isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Register"),
+            ),
+            const SizedBox(height: 20),
+            
+            // Password
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: "Password",
+                labelStyle: TextStyle(color: Colors.black54),
+                prefixIcon: Icon(Icons.lock, color: Colors.black54),
+                border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00A86B), width: 2)),
+              ),
+            ),
+            const SizedBox(height: 40),
+            
+            // Register Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isLoading ? null : _register,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00A86B), 
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: const StadiumBorder(), // Pill shape
+                  elevation: 0,
                 ),
+                child: isLoading 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                  : const Text("Register", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
