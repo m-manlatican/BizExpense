@@ -2,7 +2,6 @@ import 'package:expense_tracker_3_0/cards/available_budget_card.dart';
 import 'package:expense_tracker_3_0/cards/spending_overview_card.dart';
 import 'package:expense_tracker_3_0/cards/total_spent_card.dart';
 import 'package:expense_tracker_3_0/cards/total_budget_card.dart'; 
-import 'package:expense_tracker_3_0/pages/add_expense_page.dart'; 
 import 'package:expense_tracker_3_0/pages/all_expenses_page.dart'; 
 import 'package:expense_tracker_3_0/widgets/head_clipper.dart';
 import 'package:expense_tracker_3_0/widgets/header_title.dart';
@@ -20,8 +19,6 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0; 
-  
-  // STATE
   double _totalBudget = 5000.00; 
   final double _totalSpent = 2000.00;
 
@@ -41,15 +38,17 @@ class _DashboardPageState extends State<DashboardPage> {
         totalSpent: _totalSpent,
         onBudgetChanged: _updateBudget,
       ),
-      const AllExpensesPage(),
+      // 3. Pass the callback here!
+      // When back is pressed, it triggers _onItemTapped(0) -> switches to Home
+      AllExpensesPage(
+        onBackTap: () => _onItemTapped(0), 
+      ),
       const Center(child: Text('Reports Page Content', style: TextStyle(fontSize: 24, color: _primaryGreen))),
     ];
   }
 
   void _updateBudget(double newBudget) {
-    // FIX: Check if the widget is still in the tree before updating state
     if (!mounted) return;
-    
     setState(() {
       _totalBudget = newBudget;
       _rebuildWidgets(); 
@@ -107,10 +106,7 @@ class _DashboardPageState extends State<DashboardPage> {
         backgroundColor: const Color(0xFF00C665),
         heroTag: 'add_expense_btn', 
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddExpensePage()),
-          );
+          Navigator.pushNamed(context, '/add_expense');
         },
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
@@ -138,6 +134,7 @@ class _DashboardContent extends StatelessWidget {
   
   @override
   Widget build(BuildContext context) {
+    // (Content remains exactly the same as before)
     final double availableBalance = totalBudget - totalSpent;
 
     return SafeArea(
@@ -183,7 +180,7 @@ class _DashboardContent extends StatelessWidget {
                 ),
                 
                 const SizedBox(height: 16),
-                SpendingOverviewCard(),
+                const SpendingOverviewCard(),
               ],
             ),
           ),

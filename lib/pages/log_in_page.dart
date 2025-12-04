@@ -1,6 +1,6 @@
-import 'package:expense_tracker_3_0/pages/register_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+// Removed unused import: register_page.dart
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,6 +15,7 @@ class _LoginPageState extends State<LoginPage> {
   bool isLoading = false;
 
   Future<void> _login() async {
+    // ... (Existing login logic remains unchanged) ...
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
@@ -43,19 +44,18 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE7FFF2),
-      // Added AppBar to match RegisterPage spacing, but hid the back button
       appBar: AppBar(
         backgroundColor: Colors.transparent, 
         elevation: 0,
-        automaticallyImplyLeading: false, // No back button
+        automaticallyImplyLeading: false, 
       ),
-      // Removed Center, used Padding identical to RegisterPage
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         child: Column(
           children: [
+            const Icon(Icons.heat_pump_rounded,size: 50,),
             const Text(
-              "Welcome Back",
+              "Welcome",
               style: TextStyle(
                 fontSize: 28, 
                 fontWeight: FontWeight.bold,
@@ -68,6 +68,7 @@ class _LoginPageState extends State<LoginPage> {
               controller: emailController,
               decoration: const InputDecoration(
                 labelText: "Email",
+                // ... (rest of styling) ...
                 labelStyle: TextStyle(color: Colors.black54),
                 prefixIcon: Icon(Icons.email, color: Colors.black54),
                 border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
@@ -82,6 +83,7 @@ class _LoginPageState extends State<LoginPage> {
               obscureText: true,
               decoration: const InputDecoration(
                 labelText: "Password",
+                // ... (rest of styling) ...
                 labelStyle: TextStyle(color: Colors.black54),
                 prefixIcon: Icon(Icons.lock, color: Colors.black54),
                 border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.black38)),
@@ -111,7 +113,8 @@ class _LoginPageState extends State<LoginPage> {
             
             TextButton(
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterPage()));
+                // Use named route for register
+                Navigator.pushNamed(context, '/register');
               },
               child: const Text(
                 "Don't have an account? Register",

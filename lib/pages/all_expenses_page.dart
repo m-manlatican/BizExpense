@@ -1,12 +1,13 @@
 import 'package:expense_tracker_3_0/cards/all_expenses_listview.dart';
 import 'package:expense_tracker_3_0/models/all_expense_model.dart';
-import 'package:expense_tracker_3_0/pages/dashboard_page.dart';
-import 'package:expense_tracker_3_0/pages/edit_expense_page.dart';
 import 'package:flutter/material.dart';
 import '../firestore_functions.dart'; 
 
 class AllExpensesPage extends StatefulWidget {
-  const AllExpensesPage({super.key});
+  // 1. Add this optional callback variable
+  final VoidCallback? onBackTap;
+
+  const AllExpensesPage({super.key, this.onBackTap});
 
   @override
   AllExpensesPageState createState() => AllExpensesPageState();
@@ -15,9 +16,11 @@ class AllExpensesPage extends StatefulWidget {
 class AllExpensesPageState extends State<AllExpensesPage> {
   
   void _editExpense(Expense expense) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => EditExpensePage(expense: expense)),
+    // Keep your route logic for edits
+    await Navigator.pushNamed(
+      context, 
+      '/edit_expense',
+      arguments: expense,
     );
   }
 
@@ -27,11 +30,9 @@ class AllExpensesPageState extends State<AllExpensesPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Light gray background similar to the Dashboard body
     return Scaffold(
       backgroundColor: const Color(0xFFF6F6F6), 
       appBar: AppBar(
-        // THEME CHANGE: Dashboard Green
         backgroundColor: const Color(0xFF00B383), 
         elevation: 0,
         title: const Text(
@@ -42,11 +43,13 @@ class AllExpensesPageState extends State<AllExpensesPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => DashboardPage()
-              )
-            );
+            // 2. THE FIX: If we provided a callback (from Dashboard), use it.
+            if (widget.onBackTap != null) {
+              widget.onBackTap!();
+            } else {
+              // Otherwise, just go back normally (don't push a new Dashboard!)
+              Navigator.of(context).maybePop();
+            }
           },
         ),
         actions: [
