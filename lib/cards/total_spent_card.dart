@@ -1,4 +1,4 @@
-import 'package:expense_tracker_3_0/app_colors.dart'; // Import
+import 'package:expense_tracker_3_0/app_colors.dart'; 
 import 'package:expense_tracker_3_0/cards/white_card.dart';
 import 'package:flutter/material.dart';
 
@@ -27,13 +27,12 @@ class TotalSpentCard extends StatelessWidget {
                 height: 32,
                 width: 32,
                 decoration: BoxDecoration(
-                  // Soft Red Background for Expense
                   color: AppColors.expense.withOpacity(0.1), 
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
-                  Icons.trending_down, // trending_down makes more sense for spending
-                  color: AppColors.expense, // Coral Red
+                  Icons.trending_down, 
+                  color: AppColors.expense, 
                   size: 20,
                 ),
               ),
@@ -50,7 +49,7 @@ class TotalSpentCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '\$${spentAmount.toStringAsFixed(2)}',
+            '₱${spentAmount.toStringAsFixed(2)}', // 🔥 CHANGED TO PESO
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
@@ -64,16 +63,12 @@ class TotalSpentCard extends StatelessWidget {
               minHeight: 6,
               value: progressValue,
               backgroundColor: AppColors.background,
-              // Progress bar uses the Primary or Expense color? 
-              // Usually spending progress is warned with red or primary. 
-              // Let's use Primary (Iris Blue) for a cool look, or Expense if > 80%?
-              // Let's stick to Primary for consistency.
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            '${(percentage * 100).toStringAsFixed(1)}% of \$${totalBudget.toStringAsFixed(2)} budget',
+            '${(percentage * 100).toStringAsFixed(1)}% of ₱${totalBudget.toStringAsFixed(2)} budget', // 🔥 CHANGED TO PESO
             style: const TextStyle(
               fontSize: 11,
               color: AppColors.textSecondary,

@@ -27,17 +27,11 @@ class _EditExpensePageState extends State<EditExpensePage> {
     amountController = TextEditingController(text: widget.expense.amount.toString());
     notesController = TextEditingController(text: widget.expense.notes);
     category = widget.expense.category;
-  }
-
-  Map<String, dynamic> _getCategoryDetails(String category) {
-    switch (category) {
-      case 'Food': return {'icon': Icons.fastfood, 'color': const Color(0xFFFF9F0A)};
-      case 'Transport': return {'icon': Icons.directions_car, 'color': const Color(0xFF0A84FF)};
-      case 'Shopping': return {'icon': Icons.shopping_bag, 'color': const Color(0xFFBF5AF2)};
-      case 'Bills': return {'icon': Icons.receipt_long, 'color': const Color(0xFFFF375F)};
-      case 'Entertainment': return {'icon': Icons.movie, 'color': const Color(0xFF5E5CE6)};
-      case 'Health': return {'icon': Icons.medical_services, 'color': const Color(0xFF32D74B)};
-      default: return {'icon': Icons.grid_view, 'color': const Color(0xFF8E8E93)};
+    
+    // Safety check: ensure current category exists in the list, if not add it locally or handle it
+    if (!Expense.categories.contains(category)) {
+      // If it's a legacy category not in our new list, we just keep it as is for the dropdown value
+      // But typically we'd want to map it to 'Other'. For now, we assume it's valid or we add it to the displayed list.
     }
   }
 
@@ -48,7 +42,8 @@ class _EditExpensePageState extends State<EditExpensePage> {
     }
 
     final now = DateTime.now(); 
-    final categoryDetails = _getCategoryDetails(category);
+    // 🔥 USE SHARED HELPER
+    final categoryDetails = Expense.getCategoryDetails(category);
 
     final updatedExpense = Expense(
       id: widget.expense.id, 
@@ -62,7 +57,6 @@ class _EditExpensePageState extends State<EditExpensePage> {
       iconColorValue: (categoryDetails['color'] as Color).value, 
     );
 
-    // SRP: Use Service
     await _firestoreService.updateExpense(updatedExpense);
 
     if (mounted) Navigator.pop(context);
@@ -78,8 +72,11 @@ class _EditExpensePageState extends State<EditExpensePage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> categories = ['Supplies', 'Meals', 'Travel', 'Software', 'Food', 'Transport', 'Bills', 'Entertainment', 'Health', 'Other'];
-    if (!categories.contains(category)) categories.add(category);
+    // Construct list ensuring current category is included if somehow missing
+    final List<String> displayCategories = List.from(Expense.categories);
+    if (!displayCategories.contains(category)) {
+      displayCategories.add(category);
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -108,7 +105,7 @@ class _EditExpensePageState extends State<EditExpensePage> {
                   const SizedBox(height: 16),
                   const FormLabel('Amount'),
                   const SizedBox(height: 6),
-                  RoundedTextField(controller: amountController, prefix: const Text('\$', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)), keyboardType: const TextInputType.numberWithOptions(decimal: true), hintText: '0.00'),
+                  RoundedTextField(controller: amountController, prefix: const Text('₱', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)), keyboardType: const TextInputType.numberWithOptions(decimal: true), hintText: '0.00'),
                   const SizedBox(height: 16),
                   const FormLabel('Category'),
                   const SizedBox(height: 6),
@@ -121,7 +118,8 @@ class _EditExpensePageState extends State<EditExpensePage> {
                         isExpanded: true,
                         icon: const Icon(Icons.keyboard_arrow_down_rounded),
                         borderRadius: BorderRadius.circular(14),
-                        items: categories.map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                        // 🔥 USE SHARED CATEGORIES
+                        items: displayCategories.map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
                         onChanged: (newValue) => setState(() => category = newValue!),
                       ),
                     ),

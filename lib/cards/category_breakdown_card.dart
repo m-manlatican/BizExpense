@@ -11,7 +11,6 @@ class CategoryBreakdownCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Group expenses by Category
     final Map<String, double> categoryTotals = {};
     final Map<String, Color> categoryColors = {};
 
@@ -20,14 +19,11 @@ class CategoryBreakdownCard extends StatelessWidget {
       categoryColors[e.category] = e.iconColor;
     }
 
-    // 2. Prepare Data for Chart & List
     final totalSpent = expenses.fold(0.0, (sum, item) => sum + item.amount);
     
-    // Convert map to list and sort by amount (High to Low)
     final List<MapEntry<String, double>> sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // Create Pie Data
     final List<PieChartData> pieData = sortedCategories.map((entry) {
       return PieChartData(
         entry.value, 
@@ -50,12 +46,11 @@ class CategoryBreakdownCard extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           
-          // --- PIE CHART CENTERED ---
           if (totalSpent > 0)
             Center(
               child: SimplePieChart(
                 data: pieData,
-                radius: 80, // Size of the chart
+                radius: 80, 
               ),
             )
           else 
@@ -63,12 +58,13 @@ class CategoryBreakdownCard extends StatelessWidget {
 
           const SizedBox(height: 30),
 
-          // --- CATEGORY LIST ---
           ...sortedCategories.map((entry) {
             final categoryName = entry.key;
             final amount = entry.value;
             final color = categoryColors[categoryName] ?? Colors.grey;
             final percentage = totalSpent > 0 ? (amount / totalSpent) : 0.0;
+            // 🔥 NEW: Format percentage string
+            final percentString = (percentage * 100).toStringAsFixed(1);
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
@@ -84,18 +80,35 @@ class CategoryBreakdownCard extends StatelessWidget {
                             backgroundColor: color,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            categoryName,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textPrimary,
+                          // 🔥 UPDATED: Show Name + Percentage
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: "$categoryName ",
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textPrimary,
+                                    fontFamily: 'Roboto',
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: "($percentString%)",
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.normal,
+                                    color: AppColors.textSecondary,
+                                    fontFamily: 'Roboto',
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                       Text(
-                        "\$${amount.toStringAsFixed(2)}",
+                        "₱${amount.toStringAsFixed(2)}",
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,

@@ -1,3 +1,4 @@
+import 'package:expense_tracker_3_0/app_colors.dart';
 import 'package:expense_tracker_3_0/models/all_expense_model.dart';
 import 'package:flutter/material.dart';
 
@@ -51,7 +52,7 @@ class ExpenseCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
-                        color: Colors.black87,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ],
@@ -61,11 +62,11 @@ class ExpenseCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '\$${expense.amount.toStringAsFixed(2)}',
+                    '₱${expense.amount.toStringAsFixed(2)}', // 🔥 CHANGED TO PESO
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
-                      color: Colors.black87,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -73,7 +74,7 @@ class ExpenseCard extends StatelessWidget {
                     expense.dateLabel,
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Colors.grey,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -87,7 +88,7 @@ class ExpenseCard extends StatelessWidget {
                 expense.category,
                 style: const TextStyle(
                   fontSize: 13,
-                  color: Colors.grey,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
@@ -99,7 +100,7 @@ class ExpenseCard extends StatelessWidget {
                 expense.notes,
                 style: const TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF555555),
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
@@ -109,37 +110,29 @@ class ExpenseCard extends StatelessWidget {
             children: [
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  foregroundColor: const Color(0xFF00B383),
-                  backgroundColor: const Color(0xFFE5F8F2),
+                  foregroundColor: AppColors.primary,
+                  backgroundColor: AppColors.secondary.withOpacity(0.2),
                   elevation: 0,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   minimumSize: Size.zero,
                 ),
                 icon: const Icon(Icons.edit, size: 16),
-                label: const Text('Edit',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
+                label: const Text('Edit', style: TextStyle(fontWeight: FontWeight.w600)),
                 onPressed: onEdit,
               ),
               const SizedBox(width: 10),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  foregroundColor: const Color(0xFFDE706C),
-                  backgroundColor: const Color(0xFFFBECEB),
+                  foregroundColor: AppColors.expense,
+                  backgroundColor: AppColors.expense.withOpacity(0.1),
                   elevation: 0,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   minimumSize: Size.zero,
                 ),
                 icon: const Icon(Icons.delete, size: 16),
-                label: const Text('Delete',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
+                label: const Text('Delete', style: TextStyle(fontWeight: FontWeight.w600)),
                 onPressed: onDelete,
               ),
             ],

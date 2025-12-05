@@ -1,4 +1,4 @@
-import 'package:expense_tracker_3_0/app_colors.dart'; // Using AppColors
+import 'package:expense_tracker_3_0/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -18,15 +18,10 @@ class TotalBudgetCard extends StatefulWidget {
 
 class _TotalBudgetCardState extends State<TotalBudgetCard> {
   void _showEditBudgetModal() {
-    // 🔥 FIX: Clean text logic
-    // 1. If budget is 0, show empty string.
-    // 2. If budget is 5000.00, show "5000".
-    // 3. If budget is 5000.50, show "5000.50".
     String initialText;
     if (widget.currentBudget == 0) {
       initialText = '';
     } else {
-      // Use num.parse to strip trailing zeros naturally if it's a whole number
       initialText = num.parse(widget.currentBudget.toStringAsFixed(2)).toString();
     }
 
@@ -35,7 +30,7 @@ class _TotalBudgetCardState extends State<TotalBudgetCard> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent, // For rounded corners effect
+      backgroundColor: Colors.transparent, 
       builder: (BuildContext context) {
         return Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -70,7 +65,7 @@ class _TotalBudgetCardState extends State<TotalBudgetCard> {
                   style: const TextStyle(fontSize: 18),
                   decoration: InputDecoration(
                     labelText: 'Total Amount',
-                    prefixText: '\$ ',
+                    prefixText: '₱ ', // 🔥 CHANGED TO PESO
                     labelStyle: const TextStyle(color: AppColors.textSecondary),
                     prefixStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
@@ -93,7 +88,7 @@ class _TotalBudgetCardState extends State<TotalBudgetCard> {
                   child: ElevatedButton(
                     onPressed: () {
                       final newText = controller.text.trim();
-                      final newAmount = double.tryParse(newText) ?? 0.0; // Default to 0 if empty
+                      final newAmount = double.tryParse(newText) ?? 0.0; 
 
                       Navigator.pop(context);
                       widget.onBudgetChanged(newAmount);
@@ -139,12 +134,12 @@ class _TotalBudgetCardState extends State<TotalBudgetCard> {
             height: 36,
             width: 36,
             decoration: BoxDecoration(
-              color: AppColors.secondary, // Light Indigo
+              color: AppColors.secondary, 
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.account_balance_wallet_outlined,
-              color: AppColors.primary, // Iris Blue
+              color: AppColors.primary,
               size: 22,
             ),
           ),
@@ -164,7 +159,7 @@ class _TotalBudgetCardState extends State<TotalBudgetCard> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '\$${widget.currentBudget.toStringAsFixed(2)}',
+                  '₱${widget.currentBudget.toStringAsFixed(2)}', // 🔥 CHANGED TO PESO
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,

@@ -24,66 +24,31 @@ class ReportSummaryCard extends StatelessWidget {
         children: [
           const Text(
             "Spending Summary",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(
-                child: _SummaryBox(
-                  label: "Total Budget",
-                  amount: totalBudget,
-                  color: AppColors.success, // Greenish
-                ),
-              ),
+              Expanded(child: _SummaryBox(label: "Total Budget", amount: totalBudget, color: AppColors.success)),
               const SizedBox(width: 12),
-              Expanded(
-                child: _SummaryBox(
-                  label: "Total Spent",
-                  amount: totalSpent,
-                  color: AppColors.expense, // Reddish
-                ),
-              ),
+              Expanded(child: _SummaryBox(label: "Total Spent", amount: totalSpent, color: AppColors.expense)),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _SummaryBox(
-                  label: "Remaining",
-                  amount: remaining,
-                  color: remaining >= 0 ? AppColors.primary : AppColors.expense, 
-                ),
-              ),
+              Expanded(child: _SummaryBox(label: "Remaining", amount: remaining, color: remaining >= 0 ? AppColors.primary : AppColors.expense)),
               const SizedBox(width: 12),
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.3), borderRadius: BorderRadius.circular(16)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        "Expenses",
-                        style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
-                      ),
+                      const Text("Expenses", style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
                       const SizedBox(height: 8),
-                      Text(
-                        "$expenseCount",
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
+                      Text("$expenseCount", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                     ],
                   ),
                 ),
@@ -101,36 +66,19 @@ class _SummaryBox extends StatelessWidget {
   final double amount;
   final Color color;
 
-  const _SummaryBox({
-    required this.label,
-    required this.amount,
-    required this.color,
-  });
+  const _SummaryBox({required this.label, required this.amount, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: AppColors.textPrimary.withOpacity(0.7)),
-          ),
+          Text(label, style: TextStyle(fontSize: 12, color: AppColors.textPrimary.withOpacity(0.7))),
           const SizedBox(height: 8),
-          Text(
-            "\$${amount.toStringAsFixed(2)}",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color, // Text matches the box theme
-            ),
-          ),
+          Text("₱${amount.toStringAsFixed(2)}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
     );

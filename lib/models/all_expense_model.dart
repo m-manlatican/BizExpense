@@ -11,7 +11,6 @@ class Expense {
   final String notes;
   final int iconCodePoint; 
   final int iconColorValue; 
-  // 🔥 NEW: Track if deleted (Soft Delete)
   final bool isDeleted;
 
   Expense({
@@ -24,8 +23,53 @@ class Expense {
     required this.notes,
     required this.iconCodePoint,
     required this.iconColorValue,
-    this.isDeleted = false, // Default to active
+    this.isDeleted = false, 
   });
+
+  // 🔥 SRP: Single Source of Truth for Categories
+  static const List<String> categories = [
+    'Food', 
+    'Transport', 
+    'Shopping', 
+    'Bills', 
+    'Entertainment', 
+    'Health', 
+    'Software',  // Added
+    'Supplies',  // Added
+    'Meals',     // Added
+    'Travel',    // Added
+    'Other'
+  ];
+
+  // 🔥 SRP: Centralized Icon/Color Logic
+  static Map<String, dynamic> getCategoryDetails(String category) {
+    switch (category) {
+      case 'Food': 
+        return {'icon': Icons.fastfood, 'color': const Color(0xFFFF9F0A)}; 
+      case 'Transport': 
+        return {'icon': Icons.directions_car, 'color': const Color(0xFF0A84FF)}; 
+      case 'Shopping': 
+        return {'icon': Icons.shopping_bag, 'color': const Color(0xFFBF5AF2)}; 
+      case 'Bills': 
+        return {'icon': Icons.receipt_long, 'color': const Color(0xFFFF375F)}; 
+      case 'Entertainment': 
+        return {'icon': Icons.movie, 'color': const Color(0xFF5E5CE6)}; 
+      case 'Health': 
+        return {'icon': Icons.medical_services, 'color': const Color(0xFF32D74B)};
+      // 🔥 New Categories
+      case 'Software': 
+        return {'icon': Icons.computer, 'color': const Color(0xFF4E6AFF)}; 
+      case 'Supplies': 
+        return {'icon': Icons.inventory_2, 'color': const Color(0xFF795548)}; 
+      case 'Meals': 
+        return {'icon': Icons.restaurant, 'color': const Color(0xFFFF5722)}; 
+      case 'Travel': 
+        return {'icon': Icons.flight, 'color': const Color(0xFF00BCD4)}; 
+      case 'Other':
+      default: 
+        return {'icon': Icons.grid_view, 'color': const Color(0xFF8E8E93)}; 
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -37,7 +81,7 @@ class Expense {
       'notes': notes,
       'iconCodePoint': iconCodePoint,
       'iconColorValue': iconColorValue,
-      'isDeleted': isDeleted, // Save status
+      'isDeleted': isDeleted,
     };
   }
 
@@ -52,7 +96,6 @@ class Expense {
       notes: map['notes'] ?? '',
       iconCodePoint: map['iconCodePoint'] ?? Icons.error.codePoint,
       iconColorValue: map['iconColorValue'] ?? 0xFF000000,
-      // Load status (default false for old data)
       isDeleted: map['isDeleted'] ?? false, 
     );
   }

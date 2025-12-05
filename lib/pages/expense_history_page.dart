@@ -1,3 +1,4 @@
+// ... [imports] ...
 import 'package:expense_tracker_3_0/app_colors.dart';
 import 'package:expense_tracker_3_0/models/all_expense_model.dart';
 import 'package:expense_tracker_3_0/services/firestore_service.dart';
@@ -14,7 +15,7 @@ class ExpenseHistoryPage extends StatelessWidget {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // Header
+          // Header ...
           Container(
             padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
             decoration: const BoxDecoration(
@@ -54,7 +55,6 @@ class ExpenseHistoryPage extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator(color: AppColors.primary));
                 }
                 
-                // 🔥 Filter ONLY deleted items
                 final deletedExpenses = (snapshot.data ?? []).where((e) => e.isDeleted).toList();
 
                 if (deletedExpenses.isEmpty) {
@@ -99,7 +99,7 @@ class _HistoryCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8), // Slightly faded to indicate "deleted"
+        color: Colors.white.withOpacity(0.8), 
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -121,7 +121,7 @@ class _HistoryCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '\$${expense.amount.toStringAsFixed(2)}',
+                '₱${expense.amount.toStringAsFixed(2)}', // 🔥 CHANGED TO PESO
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.grey),
               ),
             ],
@@ -130,14 +130,12 @@ class _HistoryCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              // Restore Button
               TextButton.icon(
                 icon: const Icon(Icons.restore, size: 18, color: AppColors.primary),
                 label: const Text("Restore", style: TextStyle(color: AppColors.primary)),
                 onPressed: () => service.restoreExpense(expense.id),
               ),
               const SizedBox(width: 8),
-              // Permanent Delete
               TextButton.icon(
                 icon: const Icon(Icons.delete_forever, size: 18, color: AppColors.expense),
                 label: const Text("Delete Forever", style: TextStyle(color: AppColors.expense)),
