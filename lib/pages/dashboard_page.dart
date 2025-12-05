@@ -21,20 +21,8 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
-  
-  // Streams
-  late Stream<List<Expense>> _expensesStream;
-  late Stream<double> _budgetStream; 
-
   final FirestoreService _firestoreService = FirestoreService();
   final AuthService _authService = AuthService();
-
-  @override
-  void initState() {
-    super.initState();
-    _expensesStream = _firestoreService.getExpensesStream();
-    _budgetStream = _firestoreService.getUserBudgetStream(); 
-  }
 
   Map<String, dynamic> _getChartData(List<Expense> expenses) {
     List<double> values = [];
@@ -44,9 +32,7 @@ class _DashboardPageState extends State<DashboardPage> {
       DateTime target = now.subtract(Duration(days: i));
       double dailySum = expenses.where((e) {
         DateTime eDate = e.date.toDate();
-        return eDate.year == target.year &&
-               eDate.month == target.month &&
-               eDate.day == target.day;
+        return eDate.year == target.year && eDate.month == target.month && eDate.day == target.day;
       }).fold(0.0, (sum, item) => sum + item.amount);
       values.add(dailySum);
       dates.add("${target.month}/${target.day}");
@@ -56,66 +42,69 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
-  void _updateBudget(double newBudget) async {
-    await _firestoreService.updateUserBudget(newBudget);
-  }
+  void _updateBudget(double newBudget) => _firestoreService.updateUserBudget(newBudget);
 
   Future<void> _signOut() async {
-    final bool? shouldSignOut = await showDialog<bool>(
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: Colors.white,
-          title: const Text("Sign Out", style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-          content: const Text("Are you sure you want to log out?", style: TextStyle(color: AppColors.textSecondary)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text("Cancel", style: TextStyle(color: AppColors.textSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.expense),
-              child: const Text("Sign Out"),
-            ),
-          ],
-        );
-      },
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("Sign Out", style: TextStyle(color: AppColors.textPrimary)),
+        content: const Text("Are you sure?", style: TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true), 
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.expense),
+            child: const Text("Sign Out")
+          ),
+        ],
+      ),
     );
-
-    if (shouldSignOut == true) {
-      await _authService.signOut();
-    }
+    if (confirm == true) await _authService.signOut();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 FIX: Single StreamBuilder for Budget at the top level
     return StreamBuilder<double>(
-      stream: _budgetStream,
+      stream: _firestoreService.getUserBudgetStream(),
       builder: (context, budgetSnapshot) {
-        // This 'currentBudget' is now the single source of truth for ALL tabs
+        
+        // 🔥 FIX 1: Loading State for Budget
+        if (budgetSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          );
+        }
+
         final double currentBudget = budgetSnapshot.data ?? 0.00;
 
-        // Dashboard Content (Home Tab)
-        final dashboardContent = StreamBuilder<List<Expense>>(
-          stream: _expensesStream,
+        final dashboardTab = StreamBuilder<List<Expense>>(
+          stream: _firestoreService.getExpensesStream(),
           builder: (context, expenseSnapshot) {
+            
+            // 🔥 FIX 2: Loading State for Expenses
+            if (expenseSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            }
+
             double totalSpent = 0.0;
             List<double> chartValues = List.filled(7, 0.0);
             List<String> chartDates = List.filled(7, '-');
 
             if (expenseSnapshot.hasData) {
-              final expenses = expenseSnapshot.data!;
+              final expenses = expenseSnapshot.data!; 
+              // 🔥 LOGIC RESTORED: Uses ALL expenses (even deleted ones) for Total Spent
               totalSpent = expenses.fold(0.0, (sum, item) => sum + item.amount);
+              
               final chartData = _getChartData(expenses);
               chartValues = chartData['values'];
               chartDates = chartData['dates'];
             }
 
             return _DashboardContent(
-              totalBudget: currentBudget, // Uses the stable outer data
+              totalBudget: currentBudget,
               totalSpent: totalSpent,
               chartValues: chartValues,
               chartDates: chartDates,
@@ -126,34 +115,30 @@ class _DashboardPageState extends State<DashboardPage> {
         );
 
         final List<Widget> pages = [
-          dashboardContent, // 0: Home
-          AllExpensesPage(onBackTap: () => _onItemTapped(0)), // 1: Expenses
-          ReportsPage(totalBudget: currentBudget, onBackTap: () => _onItemTapped(0)), // 2: Reports
+          dashboardTab,
+          AllExpensesPage(onBackTap: () => _onItemTapped(0)),
+          ReportsPage(totalBudget: currentBudget, onBackTap: () => _onItemTapped(0)),
         ];
 
         return Scaffold(
           backgroundColor: AppColors.background,
           body: pages[_selectedIndex],
           bottomNavigationBar: BottomNavigationBar(
-            items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Home'),
-              BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), activeIcon: Icon(Icons.receipt_long), label: 'Expenses'),
-              BottomNavigationBarItem(icon: Icon(Icons.pie_chart_outline), activeIcon: Icon(Icons.pie_chart), label: 'Reports'),
-            ],
             currentIndex: _selectedIndex,
             onTap: _onItemTapped,
             selectedItemColor: AppColors.primary,
             unselectedItemColor: AppColors.textSecondary,
-            backgroundColor: Colors.white,
-            type: BottomNavigationBarType.fixed,
-            showUnselectedLabels: true,
-            elevation: 15,
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Home'),
+              BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Expenses'),
+              BottomNavigationBarItem(icon: Icon(Icons.pie_chart_outline), label: 'Reports'),
+            ],
           ),
           floatingActionButton: FloatingActionButton(
             backgroundColor: AppColors.primary,
-            heroTag: 'add_expense_btn',
+            heroTag: 'fab',
             onPressed: () => Navigator.pushNamed(context, '/add_expense'),
-            child: const Icon(Icons.add, color: Colors.white, size: 30),
+            child: const Icon(Icons.add, color: Colors.white),
           ),
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         );
@@ -185,14 +170,9 @@ class _DashboardContent extends StatelessWidget {
     return SafeArea(
       child: Stack(
         children: [
-          Positioned.fill(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ClipPath(clipper: HeaderClipper(), child: Container(height: 260, color: AppColors.primary)),
-            ),
-          ),
+          Positioned.fill(child: Align(alignment: Alignment.topCenter, child: ClipPath(clipper: HeaderClipper(), child: Container(height: 260, color: AppColors.primary)))),
           SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 HeaderTitle(onSignOut: onSignOut),

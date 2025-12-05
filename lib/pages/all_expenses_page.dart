@@ -1,6 +1,7 @@
 import 'package:expense_tracker_3_0/app_colors.dart';
 import 'package:expense_tracker_3_0/cards/all_expenses_listview.dart';
 import 'package:expense_tracker_3_0/models/all_expense_model.dart';
+import 'package:expense_tracker_3_0/pages/expense_history_page.dart'; // Import History Page
 import 'package:expense_tracker_3_0/services/firestore_service.dart';
 import 'package:expense_tracker_3_0/widgets/expense_filter_modal.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +25,17 @@ class AllExpensesPageState extends State<AllExpensesPage> {
   }
 
   void _deleteExpense(Expense expense) async {
+    // Soft delete (moves to history)
     await _firestoreService.deleteExpense(expense.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("Expense moved to History"),
+        backgroundColor: AppColors.textPrimary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _openFilterModal() async {
@@ -64,6 +75,7 @@ class AllExpensesPageState extends State<AllExpensesPage> {
               children: [
                 InkWell(
                   onTap: () => widget.onBackTap != null ? widget.onBackTap!() : Navigator.of(context).maybePop(),
+                  borderRadius: BorderRadius.circular(12),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
@@ -71,21 +83,39 @@ class AllExpensesPageState extends State<AllExpensesPage> {
                   ),
                 ),
                 const Text('All Expenses', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
-                InkWell(
-                  onTap: _openFilterModal,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: (_selectedCategories.isNotEmpty || _currentSort != SortOption.newest)
-                          ? Colors.white
-                          : Colors.white.withOpacity(0.2),
+                
+                Row(
+                  children: [
+                    // 🔥 NEW: History Button
+                    InkWell(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExpenseHistoryPage())),
                       borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.history, color: Colors.white, size: 20),
+                      ),
                     ),
-                    child: Icon(Icons.filter_list_rounded, 
-                      color: (_selectedCategories.isNotEmpty || _currentSort != SortOption.newest)
-                          ? AppColors.primary 
-                          : Colors.white, size: 20),
-                  ),
+                    // Filter Button
+                    InkWell(
+                      onTap: _openFilterModal,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (_selectedCategories.isNotEmpty || _currentSort != SortOption.newest)
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.filter_list_rounded, 
+                          color: (_selectedCategories.isNotEmpty || _currentSort != SortOption.newest)
+                              ? AppColors.primary 
+                              : Colors.white, size: 20),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -103,11 +133,15 @@ class AllExpensesPageState extends State<AllExpensesPage> {
                     return const Center(child: Text('No expenses yet.'));
                   }
 
-                  List<Expense> expenses = snapshot.data!;
+                  // 🔥 FILTER: Only show active expenses
+                  List<Expense> expenses = snapshot.data!.where((e) => !e.isDeleted).toList();
+
+                  // Apply Category Filter
                   if (_selectedCategories.isNotEmpty) {
                     expenses = expenses.where((e) => _selectedCategories.contains(e.category)).toList();
                   }
 
+                  // Apply Sort
                   expenses.sort((a, b) {
                     switch (_currentSort) {
                       case SortOption.newest: return b.date.compareTo(a.date);
@@ -123,11 +157,7 @@ class AllExpensesPageState extends State<AllExpensesPage> {
                       children: [
                         const Icon(Icons.search_off, size: 48, color: Colors.grey),
                         const SizedBox(height: 10),
-                        const Text('No expenses match your filter.'),
-                        TextButton(
-                          onPressed: () => setState(() { _selectedCategories.clear(); _currentSort = SortOption.newest; }),
-                          child: const Text('Clear Filters', style: TextStyle(color: AppColors.primary)),
-                        )
+                        const Text('No active expenses found.'),
                       ],
                     );
                   }

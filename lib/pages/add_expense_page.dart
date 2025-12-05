@@ -58,7 +58,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
     final double amount = double.parse(amountText);
 
-    // 🔥 VALIDATION LOGIC
+    // VALIDATION
     if (totalBudget <= 0) {
       _showErrorDialog("No Budget Set", "You need to set a budget in the Dashboard before adding expenses.");
       return;
@@ -110,9 +110,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(ctx); // Close dialog
+              Navigator.pop(ctx); 
               if (title == "No Budget Set") {
-                Navigator.pop(context); // Shortcut return to Dashboard
+                Navigator.pop(context); 
               }
             },
             child: Text(
@@ -130,14 +130,34 @@ class _AddExpensePageState extends State<AddExpensePage> {
     return StreamBuilder<double>(
       stream: _budgetStream,
       builder: (context, budgetSnapshot) {
+        
+        // 🔥 FIX 1: Show loading if budget is still waiting
+        if (budgetSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          );
+        }
+
         final double totalBudget = budgetSnapshot.data ?? 0.00;
 
         return StreamBuilder<List<Expense>>(
           stream: _expensesStream,
           builder: (context, expenseSnapshot) {
+            
+            // 🔥 FIX 2: Also wait for expenses to load to calculate accurate balance
+            if (expenseSnapshot.connectionState == ConnectionState.waiting) {
+               return const Scaffold(
+                backgroundColor: AppColors.background,
+                body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+              );
+            }
+
             double totalSpent = 0.0;
             if (expenseSnapshot.hasData) {
-              totalSpent = expenseSnapshot.data!.fold(0.0, (sum, item) => sum + item.amount);
+              // Filter out deleted items so they don't count against budget
+              final activeExpenses = expenseSnapshot.data!.where((e) => !e.isDeleted).toList();
+              totalSpent = activeExpenses.fold(0.0, (sum, item) => sum + item.amount);
             }
             final double availableBalance = totalBudget - totalSpent;
 
@@ -145,7 +165,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
               backgroundColor: AppColors.background,
               body: Column(
                 children: [
-                  // 🔥 CUSTOM HEADER
+                  // HEADER
                   Container(
                     padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
                     decoration: const BoxDecoration(
@@ -177,7 +197,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           
-                          // 🔥 BALANCE DISPLAY CARD
+                          // BALANCE CARD
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(16),
@@ -216,7 +236,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                                 ),
                                 if (totalBudget <= 0)
                                   ElevatedButton(
-                                    onPressed: () => Navigator.pop(context), // Shortcut
+                                    onPressed: () => Navigator.pop(context), 
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppColors.expense,
                                       elevation: 0,
@@ -275,7 +295,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
                             child: ElevatedButton.icon(
                               onPressed: isLoading 
                                   ? null 
-                                  // 🔥 Pass calculated values to save function
                                   : () => _saveExpense(availableBalance, totalBudget),
                               icon: isLoading 
                                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
