@@ -1,7 +1,6 @@
 import 'package:expense_tracker_3_0/app_colors.dart';
 import 'package:expense_tracker_3_0/cards/all_expenses_listview.dart';
 import 'package:expense_tracker_3_0/models/all_expense_model.dart';
-import 'package:expense_tracker_3_0/pages/edit_expense_page.dart';
 import 'package:expense_tracker_3_0/pages/expense_history_page.dart';
 import 'package:expense_tracker_3_0/services/firestore_service.dart';
 import 'package:expense_tracker_3_0/widgets/expense_filter_modal.dart';
@@ -20,12 +19,7 @@ class AllExpensesPageState extends State<AllExpensesPage> {
   final FirestoreService _firestoreService = FirestoreService();
   List<String> _selectedCategories = [];
   SortOption _currentSort = SortOption.newest;
-  
-  final List<String> _allCategories = [
-    ...Expense.expenseCategories,
-    ...Expense.incomeCategories,
-    ...Expense.capitalCategories
-  ];
+  final List<String> _allCategories = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Health', 'Other'];
 
   @override
   void initState() {
@@ -35,7 +29,9 @@ class AllExpensesPageState extends State<AllExpensesPage> {
 
   Future<void> _checkAndShowSwipeHint() async {
     try {
+      // 🔥 FIX: Wrapped in try-catch to prevent app crash if plugin isn't ready
       final prefs = await SharedPreferences.getInstance();
+      
       final bool hasDismissedHint = prefs.getBool('dismissed_swipe_hint') ?? false;
       if (hasDismissedHint) return;
 
@@ -44,7 +40,8 @@ class AllExpensesPageState extends State<AllExpensesPage> {
 
       _showSwipeHint(prefs);
     } catch (e) {
-      debugPrint("Pref Error: $e");
+      debugPrint("Shared Preferences Error: $e");
+      // App continues working even if this fails
     }
   }
 
@@ -57,8 +54,12 @@ class AllExpensesPageState extends State<AllExpensesPage> {
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                "Tip: Swipe right on an item to move it to History.",
-                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+                "Tip: Swipe right on an item to delete it.",
+                style: TextStyle(
+                  color: AppColors.textPrimary, 
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
             ),
           ],
@@ -81,19 +82,15 @@ class AllExpensesPageState extends State<AllExpensesPage> {
   }
 
   void _editExpense(Expense expense) async {
-    await Navigator.push(
-      context, 
-      MaterialPageRoute(builder: (context) => EditExpensePage(expense: expense))
-    );
+    await Navigator.pushNamed(context, '/edit_expense', arguments: expense);
   }
 
   void _deleteExpense(Expense expense) async {
     await _firestoreService.deleteExpense(expense.id);
     if (!mounted) return;
-    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text("Item moved to History"),
+        content: const Text("Expense moved to History"),
         backgroundColor: AppColors.textPrimary,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
@@ -131,98 +128,67 @@ class AllExpensesPageState extends State<AllExpensesPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 WRAP WITH TAB CONTROLLER (2 Tabs: Expenses, Income)
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: Column(
-          children: [
-            // Custom Header with TabBar
-            Container(
-              padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 0), // Reduced bottom padding for Tabs
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Top Row (Back, Title, Actions)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      InkWell(
-                        onTap: () => widget.onBackTap != null ? widget.onBackTap!() : Navigator.of(context).maybePop(),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                          child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-                        ),
-                      ),
-                      
-                      // 🔥 UPDATED TITLE
-                      const Text(
-                        'Transactions', 
-                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)
-                      ),
-                      
-                      Row(
-                        children: [
-                          InkWell(
-                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExpenseHistoryPage())),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                              child: const Icon(Icons.history, color: Colors.white, size: 20),
-                            ),
-                          ),
-                          InkWell(
-                            onTap: _openFilterModal,
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: (_selectedCategories.isNotEmpty || _currentSort != SortOption.newest)
-                                    ? Colors.white
-                                    : Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(Icons.filter_list_rounded, 
-                                color: (_selectedCategories.isNotEmpty || _currentSort != SortOption.newest)
-                                    ? AppColors.primary 
-                                    : Colors.white, size: 20),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-
-                  // 🔥 TAB BAR
-                  const TabBar(
-                    indicatorColor: AppColors.secondary,
-                    indicatorWeight: 3,
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.white54,
-                    labelStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                    tabs: [
-                      Tab(text: "Expenses"),
-                      Tab(text: "Income"),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
             ),
-
-            // List Content
-            Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                InkWell(
+                  onTap: () => widget.onBackTap != null ? widget.onBackTap!() : Navigator.of(context).maybePop(),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                    child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                  ),
+                ),
+                const Text('All Expenses', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
+                
+                Row(
+                  children: [
+                    InkWell(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExpenseHistoryPage())),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.history, color: Colors.white, size: 20),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: _openFilterModal,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (_selectedCategories.isNotEmpty || _currentSort != SortOption.newest)
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.filter_list_rounded, 
+                          color: (_selectedCategories.isNotEmpty || _currentSort != SortOption.newest)
+                              ? AppColors.primary 
+                              : Colors.white, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10),
               child: StreamBuilder<List<Expense>>(
                 stream: _firestoreService.getExpensesStream(),
                 builder: (context, snapshot) {
@@ -230,14 +196,16 @@ class AllExpensesPageState extends State<AllExpensesPage> {
                     return const Center(child: CircularProgressIndicator(color: AppColors.primary));
                   }
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('No transactions yet.'));
+                    return const Center(child: Text('No expenses yet.'));
                   }
 
-                  // 1. Get ALL Active Transactions
-                  List<Expense> allTransactions = snapshot.data!.where((e) => !e.isDeleted).toList();
+                  List<Expense> expenses = snapshot.data!.where((e) => !e.isDeleted).toList();
 
-                  // 2. Apply Sorting
-                  allTransactions.sort((a, b) {
+                  if (_selectedCategories.isNotEmpty) {
+                    expenses = expenses.where((e) => _selectedCategories.contains(e.category)).toList();
+                  }
+
+                  expenses.sort((a, b) {
                     switch (_currentSort) {
                       case SortOption.newest: return b.date.compareTo(a.date);
                       case SortOption.oldest: return a.date.compareTo(b.date);
@@ -246,42 +214,31 @@ class AllExpensesPageState extends State<AllExpensesPage> {
                     }
                   });
 
-                  // 3. Apply Category Filters (Global filter applies to both tabs)
-                  if (_selectedCategories.isNotEmpty) {
-                    allTransactions = allTransactions.where((e) => _selectedCategories.contains(e.category)).toList();
+                  if (expenses.isEmpty) {
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.search_off, size: 48, color: Colors.grey),
+                        const SizedBox(height: 10),
+                        const Text('No active expenses found.'),
+                        if (_selectedCategories.isNotEmpty)
+                          TextButton(
+                            onPressed: () => setState(() { _selectedCategories.clear(); _currentSort = SortOption.newest; }),
+                            child: const Text('Clear Filters', style: TextStyle(color: AppColors.primary)),
+                          )
+                      ],
+                    );
                   }
-
-                  // 4. Split into Income and Expenses
-                  // Note: "Capital" entries are typically treated as Income in listing or hidden.
-                  // Here we treat !isIncome as Expenses. Capital items will show under Income or hidden depending on preference.
-                  // Based on typical accounting: Capital = Equity/Income flow. Let's group Capital with Income for this view.
-                  
-                  final expenseList = allTransactions.where((e) => !e.isIncome && !e.isCapital).toList();
-                  final incomeList = allTransactions.where((e) => e.isIncome || e.isCapital).toList();
-
-                  // 🔥 TAB VIEWS
-                  return TabBarView(
-                    children: [
-                      // Tab 1: Expenses
-                      AllExpensesListView(
-                        expenses: expenseList,
-                        onEdit: _editExpense,
-                        onDelete: _deleteExpense,
-                      ),
-                      
-                      // Tab 2: Income
-                      AllExpensesListView(
-                        expenses: incomeList,
-                        onEdit: _editExpense,
-                        onDelete: _deleteExpense,
-                      ),
-                    ],
+                  return AllExpensesListView(
+                    expenses: expenses, 
+                    onEdit: _editExpense, 
+                    onDelete: _deleteExpense
                   );
                 },
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

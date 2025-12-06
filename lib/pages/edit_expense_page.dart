@@ -26,14 +26,13 @@ class _EditExpensePageState extends State<EditExpensePage> {
   late bool isPaid; 
   
   final FirestoreService _firestoreService = FirestoreService();
-  bool isLoading = false; // 🔥 Added Loading State
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
     nameController = TextEditingController(text: widget.expense.title);
     notesController = TextEditingController(text: widget.expense.notes);
-    
     category = widget.expense.category;
     isIncome = widget.expense.isIncome;
     isCapital = widget.expense.isCapital; 
@@ -58,7 +57,6 @@ class _EditExpensePageState extends State<EditExpensePage> {
   }
 
   Future<void> _handleUpdateExpense() async {
-    // 1. Validation
     if (nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Description is required.')));
       return;
@@ -67,7 +65,6 @@ class _EditExpensePageState extends State<EditExpensePage> {
     double finalAmount = 0.0;
     int? finalQty;
 
-    // 2. Calculation
     if (isCapital) {
       final amount = double.tryParse(amountController.text.replaceAll(',', ''));
       if (amount == null || amount <= 0) {
@@ -83,7 +80,6 @@ class _EditExpensePageState extends State<EditExpensePage> {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Valid Price required.')));
         return;
       }
-
       if (qtyString.isNotEmpty) {
         finalQty = int.tryParse(qtyString);
         if (finalQty == null || finalQty <= 0) {
@@ -94,7 +90,7 @@ class _EditExpensePageState extends State<EditExpensePage> {
       finalAmount = price * (finalQty ?? 1);
     }
 
-    setState(() => isLoading = true); // Start Loading
+    setState(() => isLoading = true); 
 
     try {
       final now = DateTime.now(); 
@@ -113,30 +109,18 @@ class _EditExpensePageState extends State<EditExpensePage> {
         iconColorValue: (categoryDetails['color'] as Color).value,
         isIncome: isIncome,
         isCapital: isCapital, 
-        isPaid: isPaid,       
+        isPaid: isPaid, // 🔥 Update Status
         isDeleted: widget.expense.isDeleted,
       );
 
-      // 3. Update Database
       await _firestoreService.updateExpense(updatedExpense);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Record Updated Successfully"), 
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-          )
-        );
-        // 🔥 FORCE CLOSE PAGE
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Record Updated Successfully"), backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating));
         Navigator.of(context).pop(); 
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error updating: $e"), backgroundColor: AppColors.expense)
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error updating: $e"), backgroundColor: AppColors.expense));
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -144,20 +128,13 @@ class _EditExpensePageState extends State<EditExpensePage> {
 
   @override
   Widget build(BuildContext context) {
-    List<String> displayCategories = [];
-    if (isCapital) displayCategories = Expense.capitalCategories;
-    else if (isIncome) displayCategories = Expense.incomeCategories;
-    else displayCategories = Expense.expenseCategories;
-
-    if (!displayCategories.contains(category)) {
-      displayCategories.add(category);
-    }
+    List<String> displayCategories = isCapital ? Expense.capitalCategories : (isIncome ? Expense.incomeCategories : Expense.expenseCategories);
+    if (!displayCategories.contains(category)) displayCategories.add(category);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
             decoration: const BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.vertical(bottom: Radius.circular(30))),
@@ -169,87 +146,39 @@ class _EditExpensePageState extends State<EditExpensePage> {
               ],
             ),
           ),
-          
-          // Form
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const FormLabel('Description'), 
-                  const SizedBox(height: 6), 
-                  RoundedTextField(controller: nameController, hintText: 'Description...', textInputAction: TextInputAction.next), 
-                  const SizedBox(height: 16),
-
-                  // Dynamic Inputs
-                  if (isCapital) ...[
-                    const FormLabel('Amount'), 
-                    const SizedBox(height: 6),
-                    RoundedTextField(controller: amountController, prefix: const Text('₱', style: TextStyle(fontWeight: FontWeight.w600)), keyboardType: TextInputType.number, textInputAction: TextInputAction.done),
-                  ] else ...[
+                  const FormLabel('Description'), const SizedBox(height: 6), RoundedTextField(controller: nameController, hintText: 'Description...', textInputAction: TextInputAction.next), const SizedBox(height: 16),
+                  if (isCapital) ...[const FormLabel('Amount'), const SizedBox(height: 6), RoundedTextField(controller: amountController, prefix: const Text('₱', style: TextStyle(fontWeight: FontWeight.w600)), keyboardType: TextInputType.number)] 
+                  else ...[
                     Row(children: [
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const FormLabel('Price'), const SizedBox(height: 6),
-                        RoundedTextField(controller: priceController, prefix: const Text('₱', style: TextStyle(fontWeight: FontWeight.w600)), keyboardType: TextInputType.number, textInputAction: TextInputAction.next),
-                      ])),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const FormLabel('Price'), const SizedBox(height: 6), RoundedTextField(controller: priceController, prefix: const Text('₱', style: TextStyle(fontWeight: FontWeight.w600)), keyboardType: TextInputType.number)])),
                       const SizedBox(width: 12),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const FormLabel('Qty (Optional)'), const SizedBox(height: 6),
-                        RoundedTextField(controller: qtyController, keyboardType: TextInputType.number, hintText: '1', textInputAction: TextInputAction.done),
-                      ])),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const FormLabel('Qty (Optional)'), const SizedBox(height: 6), RoundedTextField(controller: qtyController, keyboardType: TextInputType.number, hintText: '1')])),
                     ]),
                   ],
-
                   const SizedBox(height: 16),
 
-                  // Paid Status (Hidden for Capital)
+                  // 🔥 EDIT PAID STATUS
                   if (!isCapital) 
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
                       activeColor: AppColors.primary,
                       title: Text("Status: ${isPaid ? 'Paid' : 'Pending'}", style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                      subtitle: Text(isPaid ? "Transaction completed." : (isIncome ? "Waiting for payment (Credit)." : "To be paid later (Debt)."), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      subtitle: Text(isPaid ? "Transaction completed." : (isIncome ? "Waiting for payment." : "To be paid later."), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       value: isPaid,
                       onChanged: (val) => setState(() => isPaid = val ?? true),
                     ),
-                  
                   if (!isCapital) const SizedBox(height: 10),
 
-                  const FormLabel('Category'), 
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16), 
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)), 
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: category, 
-                        isExpanded: true, 
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded), 
-                        borderRadius: BorderRadius.circular(14), 
-                        items: displayCategories.map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(), 
-                        onChanged: (newValue) => setState(() => category = newValue!)
-                      ),
-                    ),
-                  ), 
-                  const SizedBox(height: 16),
-                  
-                  const FormLabel('Notes (Optional)'), 
-                  const SizedBox(height: 6), 
-                  RoundedTextField(controller: notesController, hintText: 'Add details...', maxLines: 3), 
-                  const SizedBox(height: 24),
-                  
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: isLoading ? null : _handleUpdateExpense,
-                      icon: isLoading 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.save, color: Colors.white),
-                      label: Text(isLoading ? "Updating..." : "Update Record", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 4),
-                    ),
-                  )
+                  const FormLabel('Category'), const SizedBox(height: 6),
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)), child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: category, isExpanded: true, icon: const Icon(Icons.keyboard_arrow_down_rounded), borderRadius: BorderRadius.circular(14), items: displayCategories.map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(), onChanged: (newValue) => setState(() => category = newValue!)))), const SizedBox(height: 16),
+                  const FormLabel('Notes (Optional)'), const SizedBox(height: 6), RoundedTextField(controller: notesController, hintText: 'Add details...', maxLines: 3), const SizedBox(height: 24),
+                  SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: isLoading ? null : _handleUpdateExpense, icon: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save, color: Colors.white), label: Text(isLoading ? "Updating..." : "Update Record", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 4)))
                 ],
               ),
             ),

@@ -12,15 +12,13 @@ class FirestoreService {
     return _firestore.collection('users').doc(userId);
   }
 
-  // 🔥 RESTORED: Manual Capital/Budget Methods
+  // --- BUDGET METHODS ---
   Stream<double> getUserBudgetStream() {
     final ref = _userDoc;
     if (ref == null) return Stream.value(0.0);
-
     return ref.snapshots().map((snapshot) {
       if (snapshot.exists && snapshot.data() != null) {
         final data = snapshot.data() as Map<String, dynamic>;
-        // We store it as 'totalBudget' in DB, but display as 'Capital'
         return (data['totalBudget'] as num?)?.toDouble() ?? 0.0;
       }
       return 0.0;
@@ -57,24 +55,28 @@ class FirestoreService {
     await ref.doc(expense.id).update(expense.toMap());
   }
 
+  // 🔥 SOFT DELETE: Moves to History (Updates flag only)
   Future<void> deleteExpense(String id) async {
     final ref = _userDoc?.collection('expenses');
     if (ref == null) throw Exception("User not logged in");
     await ref.doc(id).update({'isDeleted': true});
   }
 
+  // 🔥 RESTORE: Moves back to Active List
   Future<void> restoreExpense(String id) async {
     final ref = _userDoc?.collection('expenses');
     if (ref == null) throw Exception("User not logged in");
     await ref.doc(id).update({'isDeleted': false});
   }
 
+  // 🔥 HARD DELETE: Permanently removes from DB (Used in History Page)
   Future<void> permanentlyDeleteExpense(String id) async {
     final ref = _userDoc?.collection('expenses');
     if (ref == null) throw Exception("User not logged in");
     await ref.doc(id).delete();
   }
 
+  // 🔥 CLEAR ALL HISTORY
   Future<void> clearHistory() async {
     final ref = _userDoc?.collection('expenses');
     if (ref == null) throw Exception("User not logged in");

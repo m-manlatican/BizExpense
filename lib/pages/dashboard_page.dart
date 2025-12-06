@@ -23,7 +23,7 @@ class _DashboardPageState extends State<DashboardPage> {
   final FirestoreService _firestoreService = FirestoreService();
   final AuthService _authService = AuthService();
 
-  // 🔥 RESTORED: Listen to both streams
+  // Streams
   late Stream<List<Expense>> _expensesStream;
   late Stream<double> _budgetStream;
 
@@ -34,18 +34,21 @@ class _DashboardPageState extends State<DashboardPage> {
     _budgetStream = _firestoreService.getUserBudgetStream();
   }
 
+  // Calculate chart data (Expenses Only)
   Map<String, dynamic> _getChartData(List<Expense> expenses) {
     List<double> values = [];
     List<String> dates = [];
     DateTime now = DateTime.now();
     for (int i = 6; i >= 0; i--) {
       DateTime target = now.subtract(Duration(days: i));
+      
       double dailySum = expenses.where((e) {
         DateTime eDate = e.date.toDate();
         return eDate.year == target.year && 
                eDate.month == target.month && 
                eDate.day == target.day;
       }).fold(0.0, (sum, item) => sum + item.amount);
+
       values.add(dailySum);
       dates.add("${target.month}/${target.day}");
     }
@@ -54,7 +57,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
-  // 🔥 RESTORED: Function to update Capital
   void _updateBudget(double newBudget) => _firestoreService.updateUserBudget(newBudget);
 
   Future<void> _signOut() async {
@@ -80,6 +82,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (confirm == true) await _authService.signOut();
   }
 
+  // Skeleton Loading
   Widget _buildLoadingDashboard() {
     return SafeArea(
       child: Stack(
@@ -121,17 +124,18 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Manual Capital Stream
     return StreamBuilder<double>(
       stream: _budgetStream,
       builder: (context, budgetSnapshot) {
+        
+        // Wait for Capital
         if (budgetSnapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(backgroundColor: AppColors.background, body: _buildLoadingDashboard());
         }
 
-        final double manualCapital = budgetSnapshot.data ?? 0.00;
+        final double currentCapital = budgetSnapshot.data ?? 0.00;
 
-        // 2. Expenses & Income Stream
+        // 🔥 DEFINING THE DASHBOARD TAB WIDGET (With Data)
         final dashboardTab = StreamBuilder<List<Expense>>(
           stream: _expensesStream,
           builder: (context, expenseSnapshot) {
@@ -143,7 +147,7 @@ class _DashboardPageState extends State<DashboardPage> {
             double totalExpenses = 0.0;
             double totalIncome = 0.0;
             
-            // Pending items
+            // Pending amounts
             double pendingIncome = 0.0;
             double pendingExpense = 0.0;
 
@@ -151,43 +155,55 @@ class _DashboardPageState extends State<DashboardPage> {
             List<String> chartDates = List.filled(7, '-');
 
             if (expenseSnapshot.hasData) {
-              final all = expenseSnapshot.data!.where((e) => !e.isDeleted).toList();
+              final allTransactions = expenseSnapshot.data!.where((e) => !e.isDeleted).toList();
               
-              // Sales (Income) - Paid only
-              totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
-              
-              // Expenses - Paid only
-              totalExpenses = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+              // 🔥 BUSINESS MATH:
 
-              // Pending
-              pendingIncome = all.where((e) => e.isIncome && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
-              pendingExpense = all.where((e) => !e.isIncome && !e.isCapital && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+              // 1. Income (Sales) - Only Paid
+              totalIncome = allTransactions
+                  .where((e) => e.isIncome && e.isPaid)
+                  .fold(0.0, (sum, item) => sum + item.amount);
               
-              // Chart tracks expenses
-              final expenseTransactions = all.where((e) => !e.isIncome && !e.isCapital).toList();
+              // 2. Expenses - Only Paid
+              totalExpenses = allTransactions
+                  .where((e) => !e.isIncome && !e.isCapital && e.isPaid)
+                  .fold(0.0, (sum, item) => sum + item.amount);
+
+              // 3. Pending
+              pendingIncome = allTransactions
+                  .where((e) => e.isIncome && !e.isPaid)
+                  .fold(0.0, (sum, item) => sum + item.amount);
+
+              pendingExpense = allTransactions
+                  .where((e) => !e.isIncome && !e.isCapital && !e.isPaid)
+                  .fold(0.0, (sum, item) => sum + item.amount);
+              
+              // Chart data (Expenses trend)
+              final expenseTransactions = allTransactions.where((e) => !e.isIncome && !e.isCapital).toList();
               final chartData = _getChartData(expenseTransactions);
               chartValues = chartData['values'];
               chartDates = chartData['dates'];
             }
 
             return _DashboardContent(
-              manualCapital: manualCapital,
+              manualCapital: currentCapital,
               totalIncome: totalIncome,
               totalExpenses: totalExpenses,
               pendingIncome: pendingIncome,
               pendingExpense: pendingExpense,
               chartValues: chartValues,
               chartDates: chartDates,
-              onUpdateCapital: _updateBudget, // 🔥 Pass callback to edit capital
+              onUpdateCapital: _updateBudget,
               onSignOut: _signOut,
             );
           },
         );
 
+        // 🔥 LIST OF PAGES: NO PLACEHOLDERS
         final List<Widget> pages = [
-          dashboardTab,
-          AllExpensesPage(onBackTap: () => _onItemTapped(0)),
-          ReportsPage(onBackTap: () => _onItemTapped(0)),
+          dashboardTab, // 0: Actual Dashboard
+          AllExpensesPage(onBackTap: () => _onItemTapped(0)), // 1: Records
+          ReportsPage(onBackTap: () => _onItemTapped(0)), // 2: Reports
         ];
 
         return Scaffold(
@@ -246,7 +262,7 @@ class _DashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 CASH FLOW LOGIC
+    // Cash on Hand = Capital + Sales - Expenses
     final double cashOnHand = (manualCapital + totalIncome) - totalExpenses;
     final double netProfit = totalIncome - totalExpenses;
 
@@ -255,24 +271,25 @@ class _DashboardContent extends StatelessWidget {
         children: [
           Positioned.fill(
             child: Align(
-              alignment: Alignment.topCenter, 
+              alignment: Alignment.topCenter,
               child: ClipPath(
-                clipper: HeaderClipper(), 
-                child: Container(height: 260, color: AppColors.primary)
-              )
-            )
+                clipper: HeaderClipper(),
+                child: Container(height: 260, color: AppColors.primary),
+              ),
+            ),
           ),
+
           SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
               children: [
                 HeaderTitle(onSignOut: onSignOut), 
                 const SizedBox(height: 20),
                 
-                // 1. EDITABLE CAPITAL
+                // 1. CAPITAL
                 TotalBudgetCard(
                   currentBudget: manualCapital, 
-                  onBudgetChanged: onUpdateCapital, // 🔥 Enabled!
+                  onBudgetChanged: onUpdateCapital,
                 ),
 
                 const SizedBox(height: 12),
