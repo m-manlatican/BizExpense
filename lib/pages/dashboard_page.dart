@@ -23,14 +23,15 @@ class _DashboardPageState extends State<DashboardPage> {
   final FirestoreService _firestoreService = FirestoreService();
   final AuthService _authService = AuthService();
 
+  // 🔥 RESTORED: Listen to both streams
   late Stream<List<Expense>> _expensesStream;
-  late Stream<double> _capitalStream; // 🔥 Manual Capital Stream
+  late Stream<double> _budgetStream;
 
   @override
   void initState() {
     super.initState();
     _expensesStream = _firestoreService.getExpensesStream();
-    _capitalStream = _firestoreService.getUserBudgetStream(); // 🔥 Connected
+    _budgetStream = _firestoreService.getUserBudgetStream();
   }
 
   Map<String, dynamic> _getChartData(List<Expense> expenses) {
@@ -39,14 +40,12 @@ class _DashboardPageState extends State<DashboardPage> {
     DateTime now = DateTime.now();
     for (int i = 6; i >= 0; i--) {
       DateTime target = now.subtract(Duration(days: i));
-      
       double dailySum = expenses.where((e) {
         DateTime eDate = e.date.toDate();
         return eDate.year == target.year && 
                eDate.month == target.month && 
                eDate.day == target.day;
       }).fold(0.0, (sum, item) => sum + item.amount);
-
       values.add(dailySum);
       dates.add("${target.month}/${target.day}");
     }
@@ -55,8 +54,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
-  // 🔥 RESTORED: Update Capital
-  void _updateCapital(double newAmount) => _firestoreService.updateUserBudget(newAmount);
+  // 🔥 RESTORED: Function to update Capital
+  void _updateBudget(double newBudget) => _firestoreService.updateUserBudget(newBudget);
 
   Future<void> _signOut() async {
     final confirm = await showDialog<bool>(
@@ -66,8 +65,15 @@ class _DashboardPageState extends State<DashboardPage> {
         title: const Text("Sign Out", style: TextStyle(color: AppColors.textPrimary)),
         content: const Text("Are you sure you want to log out?", style: TextStyle(color: AppColors.textSecondary)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: AppColors.expense), child: const Text("Sign Out")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false), 
+            child: const Text("Cancel")
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true), 
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.expense),
+            child: const Text("Sign Out")
+          ),
         ],
       ),
     );
@@ -78,7 +84,15 @@ class _DashboardPageState extends State<DashboardPage> {
     return SafeArea(
       child: Stack(
         children: [
-          Positioned.fill(child: Align(alignment: Alignment.topCenter, child: ClipPath(clipper: HeaderClipper(), child: Container(height: 260, color: AppColors.primary)))),
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment.topCenter, 
+              child: ClipPath(
+                clipper: HeaderClipper(), 
+                child: Container(height: 260, color: AppColors.primary)
+              )
+            )
+          ),
           SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -86,7 +100,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: 60), 
                 const SkeletonLoader(height: 80, width: double.infinity),
                 const SizedBox(height: 12),
-                const SkeletonLoader(height: 80, width: double.infinity),
+                Row(
+                  children: [
+                    Expanded(child: SkeletonLoader(height: 100, width: double.infinity)),
+                    SizedBox(width: 12),
+                    Expanded(child: SkeletonLoader(height: 100, width: double.infinity)),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 const SkeletonLoader(height: 80, width: double.infinity),
                 const SizedBox(height: 16),
@@ -101,18 +121,17 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Capital Stream
+    // 1. Manual Capital Stream
     return StreamBuilder<double>(
-      stream: _capitalStream,
-      builder: (context, capitalSnapshot) {
-        
-        if (capitalSnapshot.connectionState == ConnectionState.waiting) {
+      stream: _budgetStream,
+      builder: (context, budgetSnapshot) {
+        if (budgetSnapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(backgroundColor: AppColors.background, body: _buildLoadingDashboard());
         }
 
-        final double manualCapital = capitalSnapshot.data ?? 0.00;
+        final double manualCapital = budgetSnapshot.data ?? 0.00;
 
-        // 2. Expenses Stream
+        // 2. Expenses & Income Stream
         final dashboardTab = StreamBuilder<List<Expense>>(
           stream: _expensesStream,
           builder: (context, expenseSnapshot) {
@@ -122,25 +141,30 @@ class _DashboardPageState extends State<DashboardPage> {
             }
 
             double totalExpenses = 0.0;
-            double totalSales = 0.0;
+            double totalIncome = 0.0;
+            
+            // Pending items
+            double pendingIncome = 0.0;
+            double pendingExpense = 0.0;
+
             List<double> chartValues = List.filled(7, 0.0);
             List<String> chartDates = List.filled(7, '-');
 
             if (expenseSnapshot.hasData) {
-              final activeTransactions = expenseSnapshot.data!.where((e) => !e.isDeleted).toList();
+              final all = expenseSnapshot.data!.where((e) => !e.isDeleted).toList();
               
-              // Sales (Income)
-              totalSales = activeTransactions
-                  .where((e) => e.isIncome)
-                  .fold(0.0, (sum, item) => sum + item.amount);
-                  
-              // Expenses (Money Out)
-              totalExpenses = activeTransactions
-                  .where((e) => !e.isIncome)
-                  .fold(0.0, (sum, item) => sum + item.amount);
+              // Sales (Income) - Paid only
+              totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+              
+              // Expenses - Paid only
+              totalExpenses = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+
+              // Pending
+              pendingIncome = all.where((e) => e.isIncome && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+              pendingExpense = all.where((e) => !e.isIncome && !e.isCapital && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
               
               // Chart tracks expenses
-              final expenseTransactions = activeTransactions.where((e) => !e.isIncome).toList();
+              final expenseTransactions = all.where((e) => !e.isIncome && !e.isCapital).toList();
               final chartData = _getChartData(expenseTransactions);
               chartValues = chartData['values'];
               chartDates = chartData['dates'];
@@ -148,11 +172,13 @@ class _DashboardPageState extends State<DashboardPage> {
 
             return _DashboardContent(
               manualCapital: manualCapital,
-              totalSales: totalSales,
+              totalIncome: totalIncome,
               totalExpenses: totalExpenses,
+              pendingIncome: pendingIncome,
+              pendingExpense: pendingExpense,
               chartValues: chartValues,
               chartDates: chartDates,
-              onUpdateCapital: _updateCapital,
+              onUpdateCapital: _updateBudget, // 🔥 Pass callback to edit capital
               onSignOut: _signOut,
             );
           },
@@ -161,7 +187,7 @@ class _DashboardPageState extends State<DashboardPage> {
         final List<Widget> pages = [
           dashboardTab,
           AllExpensesPage(onBackTap: () => _onItemTapped(0)),
-          ReportsPage(onBackTap: () => _onItemTapped(0)), // Updated logic doesn't need param
+          ReportsPage(onBackTap: () => _onItemTapped(0)),
         ];
 
         return Scaffold(
@@ -169,9 +195,9 @@ class _DashboardPageState extends State<DashboardPage> {
           body: pages[_selectedIndex],
           bottomNavigationBar: BottomNavigationBar(
             items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-              BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Records'),
-              BottomNavigationBarItem(icon: Icon(Icons.pie_chart_outline), label: 'Reports'),
+              BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Dashboard'),
+              BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), activeIcon: Icon(Icons.receipt_long), label: 'Records'),
+              BottomNavigationBarItem(icon: Icon(Icons.pie_chart_outline), activeIcon: Icon(Icons.pie_chart), label: 'Reports'),
             ],
             currentIndex: _selectedIndex,
             onTap: _onItemTapped,
@@ -197,8 +223,10 @@ class _DashboardPageState extends State<DashboardPage> {
 
 class _DashboardContent extends StatelessWidget {
   final double manualCapital;
-  final double totalSales;
+  final double totalIncome;
   final double totalExpenses;
+  final double pendingIncome;
+  final double pendingExpense;
   final List<double> chartValues;
   final List<String> chartDates;
   final Function(double) onUpdateCapital;
@@ -206,8 +234,10 @@ class _DashboardContent extends StatelessWidget {
 
   const _DashboardContent({
     required this.manualCapital,
-    required this.totalSales,
+    required this.totalIncome,
     required this.totalExpenses,
+    required this.pendingIncome,
+    required this.pendingExpense,
     required this.chartValues,
     required this.chartDates,
     required this.onUpdateCapital,
@@ -217,14 +247,21 @@ class _DashboardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 🔥 CASH FLOW LOGIC
-    // Cash on Hand = Capital + Sales - Expenses
-    final double cashOnHand = (manualCapital + totalSales) - totalExpenses;
-    final double netProfit = totalSales - totalExpenses;
+    final double cashOnHand = (manualCapital + totalIncome) - totalExpenses;
+    final double netProfit = totalIncome - totalExpenses;
 
     return SafeArea(
       child: Stack(
         children: [
-          Positioned.fill(child: Align(alignment: Alignment.topCenter, child: ClipPath(clipper: HeaderClipper(), child: Container(height: 260, color: AppColors.primary)))),
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment.topCenter, 
+              child: ClipPath(
+                clipper: HeaderClipper(), 
+                child: Container(height: 260, color: AppColors.primary)
+              )
+            )
+          ),
           SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -235,7 +272,7 @@ class _DashboardContent extends StatelessWidget {
                 // 1. EDITABLE CAPITAL
                 TotalBudgetCard(
                   currentBudget: manualCapital, 
-                  onBudgetChanged: onUpdateCapital,
+                  onBudgetChanged: onUpdateCapital, // 🔥 Enabled!
                 ),
 
                 const SizedBox(height: 12),
@@ -248,7 +285,7 @@ class _DashboardContent extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _buildStatCard("Total Sales", totalSales, AppColors.success),
+                      child: _buildStatCard("Total Sales", totalIncome, AppColors.success),
                     ),
                   ],
                 ),
@@ -260,7 +297,22 @@ class _DashboardContent extends StatelessWidget {
                 
                 const SizedBox(height: 12),
 
-                // 4. CASH ON HAND
+                // 4. PENDING / ACCOUNTS (Conditional)
+                if (pendingIncome > 0 || pendingExpense > 0) ...[
+                  Row(
+                    children: [
+                      if (pendingIncome > 0) 
+                        Expanded(child: _buildStatCard("To Collect", pendingIncome, Colors.orange)),
+                      if (pendingIncome > 0 && pendingExpense > 0) 
+                        const SizedBox(width: 12),
+                      if (pendingExpense > 0)
+                        Expanded(child: _buildStatCard("To Pay", pendingExpense, Colors.redAccent)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // 5. CASH ON HAND
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -305,7 +357,13 @@ class _DashboardContent extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

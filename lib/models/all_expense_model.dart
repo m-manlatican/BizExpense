@@ -11,12 +11,12 @@ class Expense {
   final String notes;
   final int iconCodePoint; 
   final int iconColorValue; 
-  
-  // 🔥 NEW FIELDS
-  final bool isDeleted; // True = In History, False = Active
+  final bool isDeleted;
   final bool isIncome;
   final bool isCapital;
   final int? quantity;
+  // 🔥 NEW: Track if transaction is settled
+  final bool isPaid; 
 
   Expense({
     required this.id,
@@ -28,13 +28,13 @@ class Expense {
     required this.notes,
     required this.iconCodePoint,
     required this.iconColorValue,
-    this.isDeleted = false, // Default to active
+    this.isDeleted = false,
     this.isIncome = false,
     this.isCapital = false,
     this.quantity,
+    this.isPaid = true, // Default to Paid (Cash)
   });
 
-  // CATEGORY LISTS
   static const List<String> expenseCategories = [
     'Inventory', 'Rent', 'Utilities', 'Labor', 'Marketing', 'Equipment', 'Tax', 'Other'
   ];
@@ -87,6 +87,7 @@ class Expense {
       'isIncome': isIncome,
       'isCapital': isCapital,
       'quantity': quantity,
+      'isPaid': isPaid, // Save status
     };
   }
 
@@ -105,6 +106,7 @@ class Expense {
       isIncome: map['isIncome'] ?? false,
       isCapital: map['isCapital'] ?? false,
       quantity: map['quantity'] as int?,
+      isPaid: map['isPaid'] ?? true, // Load status
     );
   }
 

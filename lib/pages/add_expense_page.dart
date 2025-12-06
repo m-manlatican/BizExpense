@@ -25,7 +25,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
   late Stream<List<Expense>> _expensesStream;
   late Stream<double> _budgetStream; 
 
-  // State
   TransactionType _type = TransactionType.expense; 
   String selectedCategory = Expense.expenseCategories.first;
   bool isLoading = false;
@@ -51,6 +50,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
   }
 
   Future<void> _saveTransaction(double availableBalance) async {
+    // 🔥 Local isIncome for logic
+    bool isIncome = _type == TransactionType.income;
+
     final title = titleController.text.trim();
     
     if (title.isEmpty) {
@@ -61,7 +63,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
     double finalAmount = 0.0;
     int? finalQty;
 
-    // 1. CALCULATE (Price * Qty)
     final price = double.tryParse(priceController.text.trim());
     final qty = int.tryParse(qtyController.text.trim());
     
@@ -73,8 +74,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
       return;
     }
 
-    // 2. BUSINESS LOGIC CHECK
-    if (_type == TransactionType.expense) {
+    if (!isIncome) {
       if (availableBalance <= 0) {
         _showErrorDialog(
           "Insufficient Funds", 
@@ -86,13 +86,12 @@ class _AddExpensePageState extends State<AddExpensePage> {
       if (finalAmount > availableBalance) {
         _showErrorDialog(
           "Insufficient Funds", 
-          "This expense (₱${finalAmount.toStringAsFixed(2)}) exceeds your available cash (₱${availableBalance.toStringAsFixed(2)})."
+          "This expense (₱$finalAmount) exceeds your available cash (₱${availableBalance.toStringAsFixed(2)})."
         );
         return;
       }
     }
 
-    // 3. SAVE TO DB
     try {
       setState(() => isLoading = true);
       final now = DateTime.now(); 
@@ -104,8 +103,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
         category: selectedCategory, 
         amount: finalAmount,
         quantity: finalQty, 
-        isIncome: _type == TransactionType.income,
-        isCapital: false, // Capital is managed in Dashboard
+        isIncome: isIncome,
+        isCapital: false, 
         dateLabel: "${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}/${now.year}",
         date: Timestamp.now(), 
         notes: notesController.text.trim(),
@@ -116,7 +115,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
       await _firestoreService.addExpense(newTransaction);
       if (!mounted) return;
       
-      String msg = _type == TransactionType.income ? "Sale Recorded!" : "Expense Recorded!";
+      String msg = isIncome ? "Sale Recorded!" : "Expense Recorded!";
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.success));
       Navigator.pop(context); 
       
@@ -148,7 +147,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
             ElevatedButton(
               onPressed: () { 
                 Navigator.pop(ctx); 
-                Navigator.pop(context); // Return to Dashboard
+                Navigator.pop(context); 
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               child: const Text("Go to Dashboard"),
@@ -165,7 +164,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 FIX: Define isIncome here so it can be used in the UI
+    // 🔥 FIX: Define isIncome here for the UI
     final bool isIncome = _type == TransactionType.income;
     
     final List<String> currentCategories = isIncome 
@@ -202,7 +201,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
               backgroundColor: AppColors.background,
               body: Column(
                 children: [
-                  // Header
                   Container(
                     padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
                     decoration: const BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.vertical(bottom: Radius.circular(30))),
@@ -222,7 +220,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           
-                          // Toggle Switch
+                          // Toggle
                           Container(
                             padding: const EdgeInsets.all(4),
                             margin: const EdgeInsets.only(bottom: 24),
@@ -235,7 +233,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                             ),
                           ),
 
-                          // Cash Display Card
+                          // Cash Display
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(16),
@@ -271,13 +269,12 @@ class _AddExpensePageState extends State<AddExpensePage> {
                           const SizedBox(height: 6), 
                           RoundedTextField(
                             controller: titleController, 
-                            // 🔥 FIX: isIncome is now defined
+                            // 🔥 No error here now
                             hintText: isIncome ? 'e.g. Daily Product Sales' : 'e.g. Inventory Restock',
                             textInputAction: TextInputAction.next,
                           ), 
                           const SizedBox(height: 16),
 
-                          // Unified Input Row
                           Row(
                             children: [
                               Expanded(

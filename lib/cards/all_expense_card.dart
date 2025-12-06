@@ -5,18 +5,28 @@ import 'package:flutter/material.dart';
 class ExpenseCard extends StatelessWidget {
   final Expense expense;
   final VoidCallback onEdit;
-  // Note: onDelete is handled by the ListView Swipe action now
 
-  const ExpenseCard({
-    super.key, 
-    required this.expense, 
-    required this.onEdit
-  });
+  const ExpenseCard({super.key, required this.expense, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
-    final amountColor = expense.isIncome ? AppColors.success : AppColors.textPrimary;
-    final prefix = expense.isIncome ? "+ " : "- ";
+    Color amountColor = AppColors.textPrimary;
+    String prefix = "- ";
+    
+    // Basic Type Logic
+    if (expense.isIncome) {
+      amountColor = AppColors.success; // Green
+      prefix = "+ ";
+    } else if (expense.isCapital) {
+      amountColor = const Color(0xFF4E6AFF); // Blue
+      prefix = "C ";
+    }
+
+    // 🔥 OVERRIDE IF PENDING (Unpaid)
+    if (!expense.isPaid) {
+      amountColor = Colors.orange; // Warning Color
+      prefix = "⏳ "; // Hourglass Indicator
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -39,12 +49,15 @@ class ExpenseCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Icon
               CircleAvatar(
                 backgroundColor: expense.iconColor.withOpacity(0.1),
                 radius: 20,
                 child: Icon(expense.icon, color: expense.iconColor, size: 20),
               ),
               const SizedBox(width: 14),
+              
+              // Title & Details
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,9 +66,10 @@ class ExpenseCard extends StatelessWidget {
                       expense.title,
                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppColors.textPrimary),
                     ),
-                    if (expense.quantity != null)
+                    // Qty details or Category
+                    if (expense.quantity != null && expense.quantity! > 0)
                       Text(
-                        "${expense.quantity} pcs @ ₱${(expense.amount / (expense.quantity ?? 1)).toStringAsFixed(2)}",
+                        "${expense.quantity} pcs @ ₱${(expense.amount / expense.quantity!).toStringAsFixed(2)}",
                         style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       )
                     else
@@ -63,6 +77,8 @@ class ExpenseCard extends StatelessWidget {
                   ],
                 ),
               ),
+              
+              // Amount Display
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -71,13 +87,22 @@ class ExpenseCard extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: amountColor)
                   ),
                   const SizedBox(height: 2),
-                  Text(expense.dateLabel, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  // Status Label
+                  Text(
+                    expense.isPaid ? expense.dateLabel : "PENDING",
+                    style: TextStyle(
+                      fontSize: 12, 
+                      color: expense.isPaid ? AppColors.textSecondary : Colors.orange,
+                      fontWeight: expense.isPaid ? FontWeight.normal : FontWeight.bold
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 12),
-          // 🔥 ONLY EDIT BUTTON (Delete is Swipe)
+          
+          // Edit Button
           Align(
             alignment: Alignment.centerRight,
             child: InkWell(

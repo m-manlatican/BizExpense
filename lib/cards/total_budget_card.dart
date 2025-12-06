@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 class TotalBudgetCard extends StatefulWidget {
   final double currentBudget;
+  // 🔥 Restore the callback
   final Function(double) onBudgetChanged;
 
   const TotalBudgetCard({
@@ -18,12 +19,9 @@ class TotalBudgetCard extends StatefulWidget {
 
 class _TotalBudgetCardState extends State<TotalBudgetCard> {
   void _showEditBudgetModal() {
-    String initialText;
-    if (widget.currentBudget == 0) {
-      initialText = '';
-    } else {
-      initialText = num.parse(widget.currentBudget.toStringAsFixed(2)).toString();
-    }
+    String initialText = widget.currentBudget == 0 
+        ? '' 
+        : widget.currentBudget.toStringAsFixed(2);
 
     final TextEditingController controller = TextEditingController(text: initialText);
 
@@ -48,7 +46,7 @@ class _TotalBudgetCardState extends State<TotalBudgetCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 const Text(
-                  'Update Capital', // Renamed for Business Context
+                  'Update Capital', 
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -134,7 +132,7 @@ class _TotalBudgetCardState extends State<TotalBudgetCard> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
-              Icons.savings, // Changed icon to represent Capital/Savings
+              Icons.savings,
               color: AppColors.primary,
               size: 22,
             ),
