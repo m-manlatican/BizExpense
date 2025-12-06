@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker_3_0/models/all_expense_model.dart';
+import 'package:expense_tracker_3_0/models/inventory_model.dart'; // Ensure this import exists
 import 'package:firebase_auth/firebase_auth.dart';
 
 class FirestoreService {
@@ -12,7 +13,7 @@ class FirestoreService {
     return _firestore.collection('users').doc(userId);
   }
 
-  // 🔥 UPDATED: Smart Name Retrieval (Handles Old & New Users)
+  // 🔥 FIX: ADDED MISSING METHOD
   Stream<String> getUserName() {
     final ref = _userDoc;
     if (ref == null) return Stream.value("User");
@@ -20,32 +21,50 @@ class FirestoreService {
     return ref.snapshots().map((snapshot) {
       if (snapshot.exists && snapshot.data() != null) {
         final data = snapshot.data() as Map<String, dynamic>;
-        
-        // 1. Try to get the NEW 'firstName' field
+        // 1. Try new 'firstName'
         if (data.containsKey('firstName') && data['firstName'] != null) {
-           final String first = data['firstName'];
-           if (first.isNotEmpty) return first;
+           return data['firstName'];
         }
-        
-        // 2. Fallback: If no firstName, try OLD 'fullName'
+        // 2. Fallback to 'fullName'
         if (data.containsKey('fullName') && data['fullName'] != null) {
            final String full = data['fullName'];
-           if (full.isNotEmpty) {
-             // Split string by space and take the first part (e.g. "John Doe" -> "John")
-             return full.split(' ').first;
-           }
+           if (full.isNotEmpty) return full.split(' ').first;
         }
       }
-      // 3. Default if absolutely nothing is found
       return "User";
     });
+  }
+
+  // --- INVENTORY METHODS ---
+  CollectionReference? get _inventoryCollection => _userDoc?.collection('inventory');
+
+  Stream<List<InventoryItem>> getLowStockStream() {
+    final ref = _inventoryCollection;
+    if (ref == null) return Stream.value([]);
+    return ref.where('quantity', isLessThan: 10).orderBy('quantity').limit(3).snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => InventoryItem.fromMap(doc.id, doc.data() as Map<String, dynamic>)).toList();
+    });
+  }
+
+  Future<void> updateStock(String itemName, int quantityChange) async {
+    final ref = _inventoryCollection;
+    if (ref == null) return;
+    final queryName = itemName.trim().toLowerCase();
+    final snapshot = await ref.where('name', isEqualTo: queryName).limit(1).get();
+
+    if (snapshot.docs.isNotEmpty) {
+      final doc = snapshot.docs.first;
+      final currentQty = (doc.data() as Map<String, dynamic>)['quantity'] ?? 0;
+      await doc.reference.update({'quantity': currentQty + quantityChange, 'lastUpdated': Timestamp.now()});
+    } else if (quantityChange > 0) {
+      await ref.add({'name': queryName, 'quantity': quantityChange, 'lastUpdated': Timestamp.now()});
+    }
   }
 
   // --- BUDGET METHODS ---
   Stream<double> getUserBudgetStream() {
     final ref = _userDoc;
     if (ref == null) return Stream.value(0.0);
-
     return ref.snapshots().map((snapshot) {
       if (snapshot.exists && snapshot.data() != null) {
         final data = snapshot.data() as Map<String, dynamic>;
@@ -65,11 +84,8 @@ class FirestoreService {
   Stream<List<Expense>> getExpensesStream() {
     final ref = _userDoc?.collection('expenses');
     if (ref == null) return Stream.value([]);
-
     return ref.orderBy('date', descending: true).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return Expense.fromMap(doc.id, doc.data());
-      }).toList();
+      return snapshot.docs.map((doc) => Expense.fromMap(doc.id, doc.data())).toList();
     });
   }
 
@@ -106,7 +122,6 @@ class FirestoreService {
   Future<void> clearHistory() async {
     final ref = _userDoc?.collection('expenses');
     if (ref == null) throw Exception("User not logged in");
-
     final snapshot = await ref.where('isDeleted', isEqualTo: true).get();
     final batch = _firestore.batch();
     for (final doc in snapshot.docs) {
