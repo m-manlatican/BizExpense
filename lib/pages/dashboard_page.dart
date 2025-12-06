@@ -1,5 +1,5 @@
 import 'package:expense_tracker_3_0/app_colors.dart';
-import 'package:expense_tracker_3_0/cards/spending_overview_card.dart';
+import 'package:expense_tracker_3_0/cards/spending_overview_card.dart'; // Import the Enum from here
 import 'package:expense_tracker_3_0/cards/total_budget_card.dart';
 import 'package:expense_tracker_3_0/models/all_expense_model.dart';
 import 'package:expense_tracker_3_0/pages/all_expenses_page.dart';
@@ -26,6 +26,9 @@ class _DashboardPageState extends State<DashboardPage> {
   late Stream<List<Expense>> _expensesStream;
   late Stream<double> _budgetStream;
 
+  // 🔥 NEW: Track Selected Chart Range
+  ChartTimeRange _selectedChartRange = ChartTimeRange.week;
+
   @override
   void initState() {
     super.initState();
@@ -33,29 +36,78 @@ class _DashboardPageState extends State<DashboardPage> {
     _budgetStream = _firestoreService.getUserBudgetStream();
   }
 
+  // 🔥 UPDATED: Dynamic Chart Logic
   Map<String, dynamic> _getChartData(List<Expense> expenses) {
     List<double> values = [];
     List<String> dates = [];
     DateTime now = DateTime.now();
-    for (int i = 6; i >= 0; i--) {
-      DateTime target = now.subtract(Duration(days: i));
-      
-      double dailySum = expenses.where((e) {
-        DateTime eDate = e.date.toDate();
-        return e.isIncome && 
-               eDate.year == target.year && 
-               eDate.month == target.month && 
-               eDate.day == target.day;
-      }).fold(0.0, (sum, item) => sum + item.amount);
 
-      values.add(dailySum);
-      dates.add("${target.month}/${target.day}");
+    if (_selectedChartRange == ChartTimeRange.day) {
+      // --- DAY VIEW (Hourly: 00:00 - 23:00) ---
+      for (int i = 0; i < 24; i++) {
+        double hourlySum = expenses.where((e) {
+          DateTime eDate = e.date.toDate();
+          return e.isIncome && 
+                 eDate.year == now.year && 
+                 eDate.month == now.month && 
+                 eDate.day == now.day && 
+                 eDate.hour == i;
+        }).fold(0.0, (sum, item) => sum + item.amount);
+        
+        values.add(hourlySum);
+        
+        // Show label every 4 hours to avoid clutter
+        if (i % 4 == 0) {
+          int hour = i == 0 ? 12 : (i > 12 ? i - 12 : i);
+          String ampm = i < 12 ? "AM" : "PM";
+          dates.add("$hour $ampm");
+        } else {
+          dates.add(""); // Empty label for spacing
+        }
+      }
+
+    } else if (_selectedChartRange == ChartTimeRange.week) {
+      // --- WEEK VIEW (Last 7 Days) ---
+      for (int i = 6; i >= 0; i--) {
+        DateTime target = now.subtract(Duration(days: i));
+        double dailySum = expenses.where((e) {
+          DateTime eDate = e.date.toDate();
+          return e.isIncome && 
+                 eDate.year == target.year && 
+                 eDate.month == target.month && 
+                 eDate.day == target.day;
+        }).fold(0.0, (sum, item) => sum + item.amount);
+
+        values.add(dailySum);
+        dates.add("${target.month}/${target.day}");
+      }
+
+    } else {
+      // --- MONTH VIEW (Last 30 Days) ---
+      for (int i = 29; i >= 0; i--) {
+        DateTime target = now.subtract(Duration(days: i));
+        double dailySum = expenses.where((e) {
+          DateTime eDate = e.date.toDate();
+          return e.isIncome && 
+                 eDate.year == target.year && 
+                 eDate.month == target.month && 
+                 eDate.day == target.day;
+        }).fold(0.0, (sum, item) => sum + item.amount);
+
+        values.add(dailySum);
+        
+        // Show label every 5 days
+        if (i % 5 == 0) {
+          dates.add("${target.month}/${target.day}");
+        } else {
+          dates.add(""); 
+        }
+      }
     }
     return {'values': values, 'dates': dates};
   }
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
-
   void _updateBudget(double newBudget) => _firestoreService.updateUserBudget(newBudget);
 
   Future<void> _signOut() async {
@@ -66,15 +118,8 @@ class _DashboardPageState extends State<DashboardPage> {
         title: const Text("Sign Out", style: TextStyle(color: AppColors.textPrimary)),
         content: const Text("Are you sure you want to log out?", style: TextStyle(color: AppColors.textSecondary)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false), 
-            child: const Text("Cancel")
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true), 
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.expense),
-            child: const Text("Sign Out")
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: AppColors.expense), child: const Text("Sign Out")),
         ],
       ),
     );
@@ -85,15 +130,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return SafeArea(
       child: Stack(
         children: [
-          Positioned.fill(
-            child: Align(
-              alignment: Alignment.topCenter, 
-              child: ClipPath(
-                clipper: HeaderClipper(), 
-                child: Container(height: 260, color: AppColors.primary)
-              )
-            )
-          ),
+          Positioned.fill(child: Align(alignment: Alignment.topCenter, child: ClipPath(clipper: HeaderClipper(), child: Container(height: 260, color: AppColors.primary)))),
           SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -101,13 +138,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: 60), 
                 const SkeletonLoader(height: 80, width: double.infinity),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(child: SkeletonLoader(height: 100, width: double.infinity)),
-                    SizedBox(width: 12),
-                    Expanded(child: SkeletonLoader(height: 100, width: double.infinity)),
-                  ],
-                ),
+                Row(children: [Expanded(child: SkeletonLoader(height: 100, width: double.infinity)), SizedBox(width: 12), Expanded(child: SkeletonLoader(height: 100, width: double.infinity))]),
                 const SizedBox(height: 12),
                 const SkeletonLoader(height: 80, width: double.infinity),
                 const SizedBox(height: 16),
@@ -125,24 +156,22 @@ class _DashboardPageState extends State<DashboardPage> {
     return StreamBuilder<double>(
       stream: _budgetStream,
       builder: (context, budgetSnapshot) {
-        if (budgetSnapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(backgroundColor: AppColors.background, body: _buildLoadingDashboard());
-        }
+        if (budgetSnapshot.connectionState == ConnectionState.waiting) return Scaffold(backgroundColor: AppColors.background, body: _buildLoadingDashboard());
+        
         final double currentCapital = budgetSnapshot.data ?? 0.00;
 
         final dashboardTab = StreamBuilder<List<Expense>>(
           stream: _expensesStream,
           builder: (context, expenseSnapshot) {
-            if (expenseSnapshot.connectionState == ConnectionState.waiting) {
-              return _buildLoadingDashboard();
-            }
+            if (expenseSnapshot.connectionState == ConnectionState.waiting) return _buildLoadingDashboard();
 
             double totalExpenses = 0.0;
             double totalIncome = 0.0;
             double pendingIncome = 0.0;
             double pendingExpense = 0.0;
-            List<double> chartValues = List.filled(7, 0.0);
-            List<String> chartDates = List.filled(7, '-');
+            
+            List<double> chartValues = [];
+            List<String> chartDates = [];
 
             if (expenseSnapshot.hasData) {
               final allTransactions = expenseSnapshot.data!.where((e) => !e.isDeleted).toList();
@@ -152,6 +181,7 @@ class _DashboardPageState extends State<DashboardPage> {
               pendingIncome = allTransactions.where((e) => e.isIncome && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
               pendingExpense = allTransactions.where((e) => !e.isIncome && !e.isCapital && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
               
+              // 🔥 Calculate Chart Data based on Selection
               final chartData = _getChartData(allTransactions);
               chartValues = chartData['values'];
               chartDates = chartData['dates'];
@@ -167,6 +197,9 @@ class _DashboardPageState extends State<DashboardPage> {
               chartDates: chartDates,
               onUpdateCapital: _updateBudget,
               onSignOut: _signOut,
+              // 🔥 Pass State
+              selectedRange: _selectedChartRange,
+              onRangeChanged: (range) => setState(() => _selectedChartRange = range),
             );
           },
         );
@@ -218,6 +251,10 @@ class _DashboardContent extends StatelessWidget {
   final List<String> chartDates;
   final Function(double) onUpdateCapital;
   final VoidCallback onSignOut;
+  
+  // 🔥 NEW: Chart Control
+  final ChartTimeRange selectedRange;
+  final ValueChanged<ChartTimeRange> onRangeChanged;
 
   const _DashboardContent({
     required this.manualCapital,
@@ -229,6 +266,8 @@ class _DashboardContent extends StatelessWidget {
     required this.chartDates,
     required this.onUpdateCapital,
     required this.onSignOut,
+    required this.selectedRange,
+    required this.onRangeChanged,
   });
 
   @override
@@ -239,15 +278,7 @@ class _DashboardContent extends StatelessWidget {
     return SafeArea(
       child: Stack(
         children: [
-          Positioned.fill(
-            child: Align(
-              alignment: Alignment.topCenter, 
-              child: ClipPath(
-                clipper: HeaderClipper(), 
-                child: Container(height: 260, color: AppColors.primary)
-              )
-            )
-          ),
+          Positioned.fill(child: Align(alignment: Alignment.topCenter, child: ClipPath(clipper: HeaderClipper(), child: Container(height: 260, color: AppColors.primary)))),
           SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
@@ -255,32 +286,19 @@ class _DashboardContent extends StatelessWidget {
                 HeaderTitle(onSignOut: onSignOut), 
                 const SizedBox(height: 20),
                 
-                // 1. CAPITAL (Full Width)
                 TotalBudgetCard(currentBudget: manualCapital, onBudgetChanged: onUpdateCapital),
-
                 const SizedBox(height: 12),
                 
-                // 2. NET PROFIT & TOTAL SALES
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatCard("Net Profit", netProfit, netProfit >= 0 ? AppColors.primary : AppColors.expense),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard("Total Sales", totalIncome, AppColors.success),
-                    ),
-                  ],
-                ),
-
+                Row(children: [
+                  Expanded(child: _buildStatCard("Net Profit", netProfit, netProfit >= 0 ? AppColors.primary : AppColors.expense)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildStatCard("Total Sales", totalIncome, AppColors.success)),
+                ]),
                 const SizedBox(height: 12),
                 
-                // 3. EXPENSES (Full Width)
                 _buildStatCard("Total Expenses", totalExpenses, AppColors.expense, fullWidth: true),
-                
                 const SizedBox(height: 12),
 
-                // 4. PENDING ACCOUNTS
                 if (pendingIncome > 0 || pendingExpense > 0) ...[
                    Row(children: [
                       if (pendingIncome > 0) Expanded(child: _buildStatCard("To Collect", pendingIncome, Colors.orange, isSmall: true)),
@@ -290,11 +308,10 @@ class _DashboardContent extends StatelessWidget {
                    const SizedBox(height: 12),
                 ],
 
-                // 5. CASH ON HAND
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.2), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.secondary.withOpacity(0.5))),
+                  decoration: BoxDecoration(color: AppColors.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.secondary.withOpacity(0.5))),
                   child: Row(children: [
                     const Icon(Icons.account_balance_wallet, color: AppColors.primary),
                     const SizedBox(width: 12),
@@ -303,7 +320,15 @@ class _DashboardContent extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 16),
-                SpendingOverviewCard(spendingPoints: chartValues, dateLabels: chartDates),
+                
+                // 🔥 PASS NEW CONTROLS
+                SpendingOverviewCard(
+                  spendingPoints: chartValues, 
+                  dateLabels: chartDates,
+                  selectedRange: selectedRange,
+                  onRangeChanged: onRangeChanged,
+                ),
+                
                 const SizedBox(height: 80), 
               ],
             ),
@@ -313,47 +338,12 @@ class _DashboardContent extends StatelessWidget {
     );
   }
 
-  
   Widget _buildStatCard(String title, double amount, Color color, {bool fullWidth = false, bool isSmall = false}) {
     return Container(
       width: fullWidth ? double.infinity : null,
-      padding: EdgeInsets.symmetric(
-        horizontal: 16, 
-        vertical: isSmall ? 16 : 24 
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title, 
-            style: TextStyle(
-              fontSize: isSmall ? 12 : 13, 
-              color: AppColors.textSecondary, 
-              fontWeight: FontWeight.w500
-            )
-          ),
-          const SizedBox(height: 6),
-          Text(
-            "₱${amount.toStringAsFixed(2)}", 
-            style: TextStyle(
-              fontSize: isSmall ? 18 : 24, 
-              fontWeight: FontWeight.w800, 
-              color: color
-            )
-          ),
-        ],
-      ),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: isSmall ? 16 : 24),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)), const SizedBox(height: 6), Text("₱${amount.toStringAsFixed(2)}", style: TextStyle(fontSize: isSmall ? 18 : 24, fontWeight: FontWeight.w800, color: color))]),
     );
   }
 }

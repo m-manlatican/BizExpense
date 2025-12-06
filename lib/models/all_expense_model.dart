@@ -15,7 +15,6 @@ class Expense {
   final bool isIncome;
   final bool isCapital;
   final int? quantity;
-  // 🔥 NEW: Track if transaction is settled
   final bool isPaid; 
 
   Expense({
@@ -32,7 +31,7 @@ class Expense {
     this.isIncome = false,
     this.isCapital = false,
     this.quantity,
-    this.isPaid = true, // Default to Paid (Cash)
+    this.isPaid = true, 
   });
 
   static const List<String> expenseCategories = [
