@@ -73,5 +73,8 @@ class LineChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant LineChartPainter oldDelegate) {
+    // Optimized: Repaint if the points data has changed
+    return oldDelegate.points != points;
+  }
 }

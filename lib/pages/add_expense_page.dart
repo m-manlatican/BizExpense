@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:expense_tracker_3_0/widgets/form_fields.dart';
 
 class AddExpensePage extends StatefulWidget {
-  // Optional arguments for "Quick Actions" (e.g. Restock from Dashboard)
   final String? prefillTitle;
   final String? prefillCategory;
   final TransactionType? prefillType;
@@ -29,8 +28,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
   final TextEditingController priceController = TextEditingController();
   final TextEditingController qtyController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
-  final TextEditingController amountController = TextEditingController();
-  final TextEditingController contactController = TextEditingController();
+  
+  // 🔥 UPDATED: contactController removed (unused). Using dropdown value instead.
+  String? _selectedContactType; 
 
   final FirestoreService _firestoreService = FirestoreService();
   late Stream<List<Expense>> _expensesStream;
@@ -48,7 +48,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _expensesStream = _firestoreService.getExpensesStream();
     _budgetStream = _firestoreService.getUserBudgetStream();
 
-    // Apply Pre-filled values if they exist
     if (widget.prefillType != null) {
       _type = widget.prefillType!;
     }
@@ -62,6 +61,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
     if (widget.prefillTitle != null) {
       titleController.text = widget.prefillTitle!;
     }
+    
+    _selectedContactType = null;
   }
 
   void _setType(TransactionType type) {
@@ -71,9 +72,10 @@ class _AddExpensePageState extends State<AddExpensePage> {
           ? Expense.incomeCategories.first 
           : Expense.expenseCategories.first;
       
+      _selectedContactType = null;
+      
       priceController.clear();
       qtyController.clear();
-      amountController.clear();
     });
   }
 
@@ -110,7 +112,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
     double finalAmount = 0.0;
     int? finalQty;
 
-    // 1. INPUT VALIDATION
     final price = double.tryParse(priceController.text.trim());
     final qtyString = qtyController.text.trim();
     
@@ -127,9 +128,15 @@ class _AddExpensePageState extends State<AddExpensePage> {
       }
     }
 
+    // Validation: Check if Contact Type is selected
+    bool isCapital = false; 
+    if (!isCapital && _selectedContactType == null) {
+      _showSnack(_type == TransactionType.income ? "Please select a Customer Type." : "Please select a Payee Type.");
+      return;
+    }
+
     finalAmount = price * (finalQty ?? 1);
 
-    // 2. BUDGET CHECK
     if (_type == TransactionType.expense && isPaid) {
       if (availableBalance <= 0) {
         _showErrorDialog("Insufficient Funds", "You have ₱0.00 cash on hand.", isCritical: true);
@@ -141,7 +148,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
       }
     }
 
-    // 3. INVENTORY & SAVE
     try {
       setState(() => isLoading = true);
 
@@ -165,29 +171,29 @@ class _AddExpensePageState extends State<AddExpensePage> {
          }
       }
 
-      // 🔥 FIX: Removed unused 'final now = DateTime.now();'
       final categoryDetails = Expense.getCategoryDetails(selectedCategory);
-      
       final dateLabel = "${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.year}";
 
+      // 🔥 CLEANED: Creates only one Expense object now
       final newTransaction = Expense(
-        id: '', 
-        title: title, 
-        category: selectedCategory, 
+        id: '',
+        title: title,
+        category: selectedCategory,
         amount: finalAmount,
-        quantity: finalQty, 
+        quantity: finalQty,
         isIncome: _type == TransactionType.income,
         isCapital: false,
         isPaid: isPaid,
-        contactName: contactController.text.trim(),
+        contactName: _selectedContactType!, // Uses the dropdown value
         dateLabel: dateLabel,
         date: Timestamp.fromDate(_selectedDate),
         notes: notesController.text.trim(),
-        iconCodePoint: (categoryDetails['icon'] as IconData).codePoint, 
+        iconCodePoint: (categoryDetails['icon'] as IconData).codePoint,
         iconColorValue: (categoryDetails['color'] as Color).value,
       );
-      
+
       await _firestoreService.addExpense(newTransaction);
+      
       if (!mounted) return;
       
       String msg = _type == TransactionType.income ? "Sale Recorded!" : "Expense Recorded!";
@@ -226,6 +232,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
   Widget build(BuildContext context) {
     bool isIncome = _type == TransactionType.income;
     List<String> currentCategories = isIncome ? Expense.incomeCategories : Expense.expenseCategories;
+    List<String> currentContactTypes = isIncome ? Expense.incomeContactTypes : Expense.expenseContactTypes;
+
     String dateText = "${_selectedDate.month}/${_selectedDate.day}/${_selectedDate.year}";
     bool isCapital = false; 
 
@@ -243,7 +251,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
             double totalSpent = 0.0;
             double totalIncome = 0.0;
             if (expenseSnapshot.hasData) {
-              final all = expenseSnapshot.data!.where((e) => !e.isDeleted).toList();
+              // Calculate Cash on Hand using ALL records so history items still count as spent.
+              final all = expenseSnapshot.data!.toList(); 
+
               totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
               totalSpent = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
             }
@@ -314,9 +324,29 @@ class _AddExpensePageState extends State<AddExpensePage> {
                           const SizedBox(height: 10),
 
                           if (!isCapital) ...[
-                            FormLabel(isIncome ? "Customer Name (Optional)" : "Supplier/Payee (Optional)"),
+                            FormLabel(isIncome ? "Customer Type" : "Payee Type"),
                             const SizedBox(height: 6),
-                            RoundedTextField(controller: contactController, hintText: isIncome ? "e.g. Juan dela Cruz" : "e.g. Hardware Store", prefix: const Icon(Icons.person_outline), textInputAction: TextInputAction.next),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedContactType,
+                                  isExpanded: true,
+                                  hint: const Text("Select Type", style: TextStyle(color: AppColors.textSecondary)),
+                                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                  borderRadius: BorderRadius.circular(14),
+                                  items: currentContactTypes.map((String value) {
+                                    return DropdownMenuItem(value: value, child: Text(value));
+                                  }).toList(),
+                                  onChanged: (newValue) => setState(() => _selectedContactType = newValue),
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 16),
                           ],
 

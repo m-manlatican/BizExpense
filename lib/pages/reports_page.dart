@@ -61,20 +61,23 @@ class ReportsPage extends StatelessWidget {
                 }
                 
                 final allTransactions = snapshot.data ?? [];
-                final activeTransactions = allTransactions.where((e) => !e.isDeleted).toList();
                 
-                // 🔥 Business Logic: Separate Income & Expenses
-                final totalIncome = activeTransactions
+                // 🔥 LOGIC UPDATE: Use ALL transactions (including deleted) for reports.
+                // This ensures swiped items still count towards Profit/Loss.
+                final calculationTransactions = allTransactions; 
+                
+                // Separate Income & Expenses
+                final totalIncome = calculationTransactions
                     .where((e) => e.isIncome)
                     .fold(0.0, (sum, item) => sum + item.amount);
                 
-                final totalExpenses = activeTransactions
+                final totalExpenses = calculationTransactions
                     .where((e) => !e.isIncome && !e.isCapital)
                     .fold(0.0, (sum, item) => sum + item.amount);
 
                 // Lists for Breakdown Charts
-                final expenseList = activeTransactions.where((e) => !e.isIncome && !e.isCapital).toList();
-                final incomeList = activeTransactions.where((e) => e.isIncome).toList();
+                final expenseList = calculationTransactions.where((e) => !e.isIncome && !e.isCapital).toList();
+                final incomeList = calculationTransactions.where((e) => e.isIncome).toList();
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(16),

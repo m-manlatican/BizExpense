@@ -148,7 +148,6 @@ class _DashboardPageState extends State<DashboardPage> {
               builder: (context, expenseSnapshot) {
                 if (expenseSnapshot.connectionState == ConnectionState.waiting) return _buildLoadingDashboard();
 
-                // 🔥 Low Stock Stream
                 return StreamBuilder<List<InventoryItem>>(
                   stream: _lowStockStream,
                   builder: (context, stockSnapshot) {
@@ -162,11 +161,15 @@ class _DashboardPageState extends State<DashboardPage> {
                     List<String> chartDates = [];
 
                     if (expenseSnapshot.hasData) {
-                      final all = expenseSnapshot.data!.where((e) => !e.isDeleted).toList();
+                      // 🔥 CHANGED: Removed .where((e) => !e.isDeleted)
+                      // Now we calculate totals based on ALL items (Active + History)
+                      final all = expenseSnapshot.data!.toList();
+                      
                       totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
                       totalExpenses = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
                       pendingIncome = all.where((e) => e.isIncome && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
                       pendingExpense = all.where((e) => !e.isIncome && !e.isCapital && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+                      
                       final chartData = _getChartData(all);
                       chartValues = chartData['values'];
                       chartDates = chartData['dates'];

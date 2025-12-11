@@ -19,13 +19,14 @@ class _EditExpensePageState extends State<EditExpensePage> {
   late TextEditingController qtyController;
   late TextEditingController notesController;
   late TextEditingController amountController;
-  late TextEditingController contactController; // 🔥 NEW: Contact Name
+  
+  String? _selectedContactType; 
   
   late String category;
   late bool isIncome;
   late bool isCapital;
   late bool isPaid;
-  late DateTime selectedDate; // 🔥 NEW: Date State
+  late DateTime selectedDate; 
   
   final FirestoreService _firestoreService = FirestoreService();
   bool isLoading = false;
@@ -35,19 +36,24 @@ class _EditExpensePageState extends State<EditExpensePage> {
     super.initState();
     nameController = TextEditingController(text: widget.expense.title);
     notesController = TextEditingController(text: widget.expense.notes);
-    contactController = TextEditingController(text: widget.expense.contactName); // 🔥 Load Name
     
     category = widget.expense.category;
     isIncome = widget.expense.isIncome;
     isCapital = widget.expense.isCapital; 
     isPaid = widget.expense.isPaid;
-    selectedDate = widget.expense.date.toDate(); // 🔥 Load Date
+    selectedDate = widget.expense.date.toDate();
+
+    List<String> validTypes = isIncome ? Expense.incomeContactTypes : Expense.expenseContactTypes;
+    if (validTypes.contains(widget.expense.contactName)) {
+      _selectedContactType = widget.expense.contactName;
+    } else {
+      _selectedContactType = validTypes.contains('Other') ? 'Other' : validTypes.first;
+    }
 
     amountController = TextEditingController();
     priceController = TextEditingController();
     qtyController = TextEditingController();
 
-    // Logic: Pre-fill Amount or Price/Qty
     if (isCapital) {
       amountController.text = widget.expense.amount.toStringAsFixed(2);
     } else {
@@ -56,13 +62,12 @@ class _EditExpensePageState extends State<EditExpensePage> {
         double price = widget.expense.amount / widget.expense.quantity!;
         priceController.text = price.toStringAsFixed(2);
       } else {
-        qtyController.text = "1"; // Default to 1 if null
+        qtyController.text = "1"; 
         priceController.text = widget.expense.amount.toStringAsFixed(2);
       }
     }
   }
 
-  // 🔥 NEW: Date Picker
   Future<void> _pickDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -128,8 +133,6 @@ class _EditExpensePageState extends State<EditExpensePage> {
 
     try {
       final categoryDetails = Expense.getCategoryDetails(category);
-      
-      // 🔥 Format Date String
       final dateLabel = "${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.year}";
 
       final updatedExpense = Expense(
@@ -138,10 +141,12 @@ class _EditExpensePageState extends State<EditExpensePage> {
         amount: finalAmount,
         quantity: finalQty, 
         category: category,
-        dateLabel: dateLabel, // 🔥 Save Updated Date Label
-        date: Timestamp.fromDate(selectedDate), // 🔥 Save Updated Timestamp
+        dateLabel: dateLabel, 
+        date: Timestamp.fromDate(selectedDate), 
         notes: notesController.text.trim(),
-        contactName: contactController.text.trim(), // 🔥 Save Contact
+        
+        contactName: _selectedContactType ?? '',
+        
         iconCodePoint: (categoryDetails['icon'] as IconData).codePoint,
         iconColorValue: (categoryDetails['color'] as Color).value,
         isIncome: isIncome,
@@ -174,6 +179,8 @@ class _EditExpensePageState extends State<EditExpensePage> {
       displayCategories.add(category);
     }
     
+    List<String> displayContactTypes = isIncome ? Expense.incomeContactTypes : Expense.expenseContactTypes;
+
     String dateText = "${selectedDate.month}/${selectedDate.day}/${selectedDate.year}";
 
     return Scaffold(
@@ -198,7 +205,6 @@ class _EditExpensePageState extends State<EditExpensePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 🔥 DATE PICKER
                   InkWell(
                     onTap: _pickDate,
                     borderRadius: BorderRadius.circular(14),
@@ -227,7 +233,6 @@ class _EditExpensePageState extends State<EditExpensePage> {
                   RoundedTextField(controller: nameController, hintText: 'Description...', textInputAction: TextInputAction.next), 
                   const SizedBox(height: 16),
 
-                  // Dynamic Inputs
                   if (isCapital) ...[
                     const FormLabel('Amount'), 
                     const SizedBox(height: 6),
@@ -247,7 +252,6 @@ class _EditExpensePageState extends State<EditExpensePage> {
                   ],
                   const SizedBox(height: 16),
 
-                  // 🔥 PAID STATUS TOGGLE
                   if (!isCapital) 
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
@@ -259,15 +263,28 @@ class _EditExpensePageState extends State<EditExpensePage> {
                     ),
                   if (!isCapital) const SizedBox(height: 10),
 
-                  // 🔥 CONTACT NAME (Customer/Supplier)
                   if (!isCapital) ...[
-                    FormLabel(isIncome ? "Customer Name (Optional)" : "Supplier/Payee (Optional)"),
+                    FormLabel(isIncome ? "Customer Type" : "Payee Type"),
                     const SizedBox(height: 6),
-                    RoundedTextField(
-                      controller: contactController,
-                      hintText: isIncome ? "e.g. Juan dela Cruz" : "e.g. Hardware Store",
-                      prefix: const Icon(Icons.person_outline),
-                      textInputAction: TextInputAction.next,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedContactType,
+                          isExpanded: true,
+                          // 🔥 UPDATED: Added Hint Text
+                          hint: const Text("Select Type", style: TextStyle(color: AppColors.textSecondary)),
+                          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                          borderRadius: BorderRadius.circular(14),
+                          items: displayContactTypes.map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                          onChanged: (newValue) => setState(() => _selectedContactType = newValue),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                   ],

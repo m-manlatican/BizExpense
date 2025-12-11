@@ -30,7 +30,6 @@ class RoundedTextField extends StatelessWidget {
   final String? errorText;
   final ValueChanged<String>? onChanged;
   
-  // 🔥 NEW: Keyboard Interaction Properties
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onFieldSubmitted;
 
@@ -46,79 +45,74 @@ class RoundedTextField extends StatelessWidget {
     this.obscureText = false,
     this.errorText,
     this.onChanged,
-    this.textInputAction, // 🔥 Added
-    this.onFieldSubmitted, // 🔥 Added
+    this.textInputAction,
+    this.onFieldSubmitted,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: controller,
-          readOnly: readOnly,
-          keyboardType: keyboardType,
-          maxLines: maxLines,
-          obscureText: obscureText,
-          onChanged: onChanged,
-          // 🔥 NEW: Apply keyboard actions
-          textInputAction: textInputAction,
-          onSubmitted: onFieldSubmitted,
-          
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            hintText: hintText,
-            hintStyle: const TextStyle(color: AppColors.textSecondary),
-            prefixIcon: prefix == null
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(left: 14, right: 8),
-                    child: IconTheme(
-                      data: IconThemeData(
-                        color: errorText != null ? AppColors.expense : AppColors.textPrimary
-                      ), 
-                      child: prefix!
-                    ),
-                  ),
-            prefixIconConstraints:
-                const BoxConstraints(minWidth: 0, minHeight: 0),
-            suffixIcon: suffixIcon,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            
-            errorText: errorText, 
-            errorStyle: const TextStyle(
-              color: AppColors.expense, 
-              fontWeight: FontWeight.w600,
-              fontSize: 12
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.expense, width: 1.5),
-            ),
-            focusedErrorBorder: const OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(14)),
-              borderSide: BorderSide(color: AppColors.expense, width: 2),
-            ),
-            
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
-            ),
-            focusedBorder: const OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(14)),
-              borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-            ),
-          ),
+    // Optimized: Removed the unnecessary Column wrapper
+    return TextField(
+      controller: controller,
+      readOnly: readOnly,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      obscureText: obscureText,
+      onChanged: onChanged,
+      textInputAction: textInputAction,
+      onSubmitted: onFieldSubmitted,
+      
+      style: const TextStyle(color: AppColors.textPrimary),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.white,
+        hintText: hintText,
+        hintStyle: const TextStyle(color: AppColors.textSecondary),
+        prefixIcon: prefix == null
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(left: 14, right: 8),
+                child: IconTheme(
+                  data: IconThemeData(
+                    color: errorText != null ? AppColors.expense : AppColors.textPrimary
+                  ), 
+                  child: prefix!
+                ),
+              ),
+        prefixIconConstraints:
+            const BoxConstraints(minWidth: 0, minHeight: 0),
+        suffixIcon: suffixIcon,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        
+        errorText: errorText, 
+        errorStyle: const TextStyle(
+          color: AppColors.expense, 
+          fontWeight: FontWeight.w600,
+          fontSize: 12
         ),
-      ],
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.expense, width: 1.5),
+        ),
+        focusedErrorBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          borderSide: BorderSide(color: AppColors.expense, width: 2),
+        ),
+        
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+      ),
     );
   }
 }
