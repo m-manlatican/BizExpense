@@ -36,8 +36,9 @@ class Expense {
     this.contactName = '', 
   });
 
+  // 🔥 UPDATED: Added 'Product' to the list
   static const List<String> expenseCategories = [
-    'Inventory', 'Rent', 'Utilities', 'Labor', 'Marketing', 'Equipment', 'Tax', 'Other'
+    'Product', 'Inventory', 'Rent', 'Utilities', 'Labor', 'Marketing', 'Equipment', 'Tax', 'Other'
   ];
   
   static const List<String> incomeCategories = [
@@ -48,7 +49,6 @@ class Expense {
     'Initial Capital', 'Additional Investment', 'Loan', 'Grant'
   ];
 
-  // 🔥 NEW: Standard Contact Types for Dropdown
   static const List<String> expenseContactTypes = [
     'Supplier', 'Payee', 'Vendor', 'Employee', 'Contractor', 'Other'
   ];
@@ -60,6 +60,8 @@ class Expense {
   static Map<String, dynamic> getCategoryDetails(String category) {
     switch (category) {
       // EXPENSES
+      // 🔥 NEW: Product Style
+      case 'Product': return {'icon': Icons.check_box_outline_blank, 'color': const Color(0xFF4A90E2)}; // Blue
       case 'Inventory': return {'icon': Icons.inventory_2, 'color': const Color(0xFFE76F51)}; 
       case 'Rent': return {'icon': Icons.store, 'color': const Color(0xFF264653)}; 
       case 'Utilities': return {'icon': Icons.bolt, 'color': const Color(0xFFE9C46A)}; 

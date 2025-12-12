@@ -7,8 +7,9 @@ class AllExpensesListView extends StatelessWidget {
   final List<Expense> expenses;
   final void Function(Expense) onEdit;
   final void Function(Expense) onDelete;
-  // 🔥 NEW: Callback for Mark Paid
   final void Function(Expense)? onMarkAsPaid;
+  // 🔥 NEW: Custom message for empty state
+  final String emptyMessage;
 
   const AllExpensesListView({
     super.key,
@@ -16,13 +17,15 @@ class AllExpensesListView extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     this.onMarkAsPaid,
+    this.emptyMessage = "No transactions yet", // Default value
   });
 
   @override
   Widget build(BuildContext context) {
     if (expenses.isEmpty) {
-      return const Center(
-        child: Text("No expenses yet", style: TextStyle(color: Colors.grey)),
+      return Center(
+        // 🔥 UPDATED: Use the custom message
+        child: Text(emptyMessage, style: const TextStyle(color: Colors.grey)),
       );
     }
     
@@ -57,7 +60,6 @@ class AllExpensesListView extends StatelessWidget {
           child: ExpenseCard(
             expense: expense,
             onEdit: () => onEdit(expense),
-            // 🔥 Pass the callback to the card
             onMarkAsPaid: onMarkAsPaid != null ? () => onMarkAsPaid!(expense) : null,
           ),
         );

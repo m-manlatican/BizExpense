@@ -43,26 +43,37 @@ class _DashboardPageState extends State<DashboardPage> {
     _lowStockStream = _firestoreService.getLowStockStream(); // 🔥 Init
   }
 
-  // ... [Chart Data Logic - Same as before] ...
   Map<String, dynamic> _getChartData(List<Expense> expenses) {
     List<double> values = [];
     List<String> dates = [];
     DateTime now = DateTime.now();
 
     if (_selectedChartRange == ChartTimeRange.day) {
-      for (int i = 0; i < 24; i++) {
+      // 1. CHART FOR "DAY" (HOURLY)
+      // We loop from 0 (12 AM) to 23 (11 PM) for TODAY only.
+      for (int hour = 0; hour < 24; hour++) {
         double hourlySum = expenses.where((e) {
-          DateTime eDate = e.date.toDate();
-          return e.isIncome && eDate.year == now.year && eDate.month == now.month && eDate.day == now.day && eDate.hour == i;
+          DateTime eDate = e.date.toDate(); // Converts Firestore Timestamp to Local Device Time
+          
+          // Check if the expense is strictly from TODAY and matches the specific HOUR
+          bool isToday = eDate.year == now.year && eDate.month == now.month && eDate.day == now.day;
+          return e.isIncome && isToday && eDate.hour == hour;
         }).fold(0.0, (sum, item) => sum + item.amount);
+
         values.add(hourlySum);
-        if (i % 4 == 0) {
-          int hour = i == 0 ? 12 : (i > 12 ? i - 12 : i);
-          String ampm = i < 12 ? "AM" : "PM";
-          dates.add("$hour $ampm");
-        } else { dates.add(""); }
+
+        // Generate Labels (Every 4 hours to avoid crowding: 12am, 4am, 8am...)
+        if (hour % 4 == 0) {
+          int displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+          String ampm = hour < 12 ? "AM" : "PM";
+          dates.add("$displayHour $ampm");
+        } else {
+          dates.add(""); // Empty label for cleaner UI
+        }
       }
-    } else if (_selectedChartRange == ChartTimeRange.week) {
+    } 
+    else if (_selectedChartRange == ChartTimeRange.week) {
+      // 2. CHART FOR "WEEK" (LAST 7 DAYS)
       for (int i = 6; i >= 0; i--) {
         DateTime target = now.subtract(Duration(days: i));
         double dailySum = expenses.where((e) {
@@ -72,7 +83,9 @@ class _DashboardPageState extends State<DashboardPage> {
         values.add(dailySum);
         dates.add("${target.month}/${target.day}");
       }
-    } else {
+    } 
+    else {
+      // 3. CHART FOR "MONTH" (LAST 30 DAYS)
       for (int i = 29; i >= 0; i--) {
         DateTime target = now.subtract(Duration(days: i));
         double dailySum = expenses.where((e) {
@@ -80,7 +93,13 @@ class _DashboardPageState extends State<DashboardPage> {
           return e.isIncome && eDate.year == target.year && eDate.month == target.month && eDate.day == target.day;
         }).fold(0.0, (sum, item) => sum + item.amount);
         values.add(dailySum);
-        if (i % 5 == 0) { dates.add("${target.month}/${target.day}"); } else { dates.add(""); }
+        
+        // Label every 5 days
+        if (i % 5 == 0) { 
+          dates.add("${target.month}/${target.day}"); 
+        } else { 
+          dates.add(""); 
+        }
       }
     }
     return {'values': values, 'dates': dates};
@@ -315,7 +334,7 @@ class _DashboardContent extends StatelessWidget {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.2), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.secondary.withOpacity(0.5))),
+                  decoration: BoxDecoration(color: AppColors.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.secondary.withOpacity(0.5))),
                   child: Row(children: [
                     const Icon(Icons.account_balance_wallet, color: AppColors.primary),
                     const SizedBox(width: 12),

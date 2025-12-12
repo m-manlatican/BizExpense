@@ -24,13 +24,14 @@ class AddExpensePage extends StatefulWidget {
 enum TransactionType { expense, income }
 
 class _AddExpensePageState extends State<AddExpensePage> {
-  final TextEditingController titleController = TextEditingController();
+  final TextEditingController titleController = TextEditingController(); // Used for Expense (Text)
   final TextEditingController priceController = TextEditingController();
   final TextEditingController qtyController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
   
-  // 🔥 UPDATED: contactController removed (unused). Using dropdown value instead.
   String? _selectedContactType; 
+  // 🔥 NEW: Selected Product for Income Dropdown
+  String? _selectedProductDescription; 
 
   final FirestoreService _firestoreService = FirestoreService();
   late Stream<List<Expense>> _expensesStream;
@@ -60,6 +61,10 @@ class _AddExpensePageState extends State<AddExpensePage> {
     }
     if (widget.prefillTitle != null) {
       titleController.text = widget.prefillTitle!;
+      // If income, try to preselect the dropdown
+      if (_type == TransactionType.income) {
+        _selectedProductDescription = widget.prefillTitle;
+      }
     }
     
     _selectedContactType = null;
@@ -73,7 +78,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
           : Expense.expenseCategories.first;
       
       _selectedContactType = null;
+      _selectedProductDescription = null; // Reset product selection
       
+      titleController.clear();
       priceController.clear();
       qtyController.clear();
     });
@@ -106,8 +113,15 @@ class _AddExpensePageState extends State<AddExpensePage> {
   }
 
   Future<void> _saveTransaction(double availableBalance) async {
-    final title = titleController.text.trim();
-    if (title.isEmpty) { _showSnack('Please enter a description.'); return; }
+    // 🔥 LOGIC: Use Dropdown value for Income, Text Controller for Expense
+    String title = '';
+    if (_type == TransactionType.income) {
+      title = _selectedProductDescription ?? '';
+    } else {
+      title = titleController.text.trim();
+    }
+
+    if (title.isEmpty) { _showSnack('Please enter or select a description.'); return; }
 
     double finalAmount = 0.0;
     int? finalQty;
@@ -128,7 +142,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
       }
     }
 
-    // Validation: Check if Contact Type is selected
     bool isCapital = false; 
     if (!isCapital && _selectedContactType == null) {
       _showSnack(_type == TransactionType.income ? "Please select a Customer Type." : "Please select a Payee Type.");
@@ -151,9 +164,12 @@ class _AddExpensePageState extends State<AddExpensePage> {
     try {
       setState(() => isLoading = true);
 
+      // 🔥 STOCK LOGIC: Recognizes both 'Product Sales' (Income) and 'Product' (Expense)
       if (_type == TransactionType.income && selectedCategory == "Product Sales") {
          await _firestoreService.updateStock(title, -(finalQty ?? 1)); 
-      } else if (_type == TransactionType.expense && selectedCategory == "Inventory") {
+      } 
+      else if (_type == TransactionType.expense && (selectedCategory == "Inventory" || selectedCategory == "Product")) {
+         // Works for both "Inventory" (Old) and "Product" (New)
          bool updateStock = await showDialog(
            context: context,
            builder: (ctx) => AlertDialog(
@@ -174,7 +190,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
       final categoryDetails = Expense.getCategoryDetails(selectedCategory);
       final dateLabel = "${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.year}";
 
-      // 🔥 CLEANED: Creates only one Expense object now
       final newTransaction = Expense(
         id: '',
         title: title,
@@ -184,7 +199,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
         isIncome: _type == TransactionType.income,
         isCapital: false,
         isPaid: isPaid,
-        contactName: _selectedContactType!, // Uses the dropdown value
+        contactName: _selectedContactType!, 
         dateLabel: dateLabel,
         date: Timestamp.fromDate(_selectedDate),
         notes: notesController.text.trim(),
@@ -233,7 +248,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
     bool isIncome = _type == TransactionType.income;
     List<String> currentCategories = isIncome ? Expense.incomeCategories : Expense.expenseCategories;
     List<String> currentContactTypes = isIncome ? Expense.incomeContactTypes : Expense.expenseContactTypes;
-
     String dateText = "${_selectedDate.month}/${_selectedDate.day}/${_selectedDate.year}";
     bool isCapital = false; 
 
@@ -248,11 +262,23 @@ class _AddExpensePageState extends State<AddExpensePage> {
           builder: (context, expenseSnapshot) {
             if (expenseSnapshot.connectionState == ConnectionState.waiting) return const Scaffold(backgroundColor: AppColors.background, body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
 
+            // 🔥 EXTRACT PRODUCTS FOR DROPDOWN
+            // We get all expenses, filter for 'Product' category (or Inventory), and get unique titles.
+            List<String> productList = [];
             double totalSpent = 0.0;
             double totalIncome = 0.0;
+            
             if (expenseSnapshot.hasData) {
-              // Calculate Cash on Hand using ALL records so history items still count as spent.
-              final all = expenseSnapshot.data!.toList(); 
+              final all = expenseSnapshot.data!.toList();
+              
+              // Logic for Dropdown: Extract unique titles where category is "Product"
+              final products = all
+                  .where((e) => e.category == 'Product') // Filter strictly for 'Product' as requested
+                  .map((e) => e.title)
+                  .toSet() // Remove duplicates
+                  .toList();
+              products.sort(); // Alphabetical order
+              productList = products;
 
               totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
               totalSpent = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
@@ -305,7 +331,46 @@ class _AddExpensePageState extends State<AddExpensePage> {
                           ),
                           const SizedBox(height: 16),
 
-                          const FormLabel('Description'), const SizedBox(height: 6), RoundedTextField(controller: titleController, hintText: isIncome ? 'e.g. Daily Product Sales' : 'e.g. Inventory Restock', textInputAction: TextInputAction.next), const SizedBox(height: 16),
+                          const FormLabel('Description'), 
+                          const SizedBox(height: 6),
+                          
+                          // 🔥 UI SWITCH: Dropdown for Income, Text for Expense
+                          if (isIncome)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedProductDescription,
+                                  isExpanded: true,
+                                  hint: Text(
+                                    productList.isEmpty ? "No products added yet" : "Select Product",
+                                    style: const TextStyle(color: AppColors.textSecondary)
+                                  ),
+                                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                  borderRadius: BorderRadius.circular(14),
+                                  items: productList.map((String value) {
+                                    return DropdownMenuItem(value: value, child: Text(value));
+                                  }).toList(),
+                                  onChanged: productList.isEmpty 
+                                    ? null // Disable if no products
+                                    : (newValue) => setState(() => _selectedProductDescription = newValue),
+                                ),
+                              ),
+                            )
+                          else
+                            RoundedTextField(
+                              controller: titleController, 
+                              hintText: 'e.g. Inventory Restock', 
+                              textInputAction: TextInputAction.next
+                            ),
+                            
+                          const SizedBox(height: 16),
+                          
                           Row(children: [
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const FormLabel('Price'), const SizedBox(height: 6), RoundedTextField(controller: priceController, prefix: const Text('₱', style: TextStyle(fontWeight: FontWeight.w600)), keyboardType: TextInputType.number, textInputAction: TextInputAction.next)])),
                             const SizedBox(width: 12),

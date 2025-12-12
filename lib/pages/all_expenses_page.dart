@@ -87,7 +87,6 @@ class AllExpensesPageState extends State<AllExpensesPage> {
     await Navigator.pushNamed(context, '/edit_expense', arguments: expense);
   }
 
-  // 🔥 NEW: Handler for Marking as Paid
   void _handleMarkAsPaid(Expense expense) async {
     await _firestoreService.markAsPaid(expense.id);
     
@@ -267,8 +266,9 @@ class AllExpensesPageState extends State<AllExpensesPage> {
                         expenses: expenseList,
                         onEdit: _editExpense,
                         onDelete: _deleteExpense,
-                        // 🔥 PASS CALLBACK
                         onMarkAsPaid: _handleMarkAsPaid,
+                        // 🔥 CUSTOM MESSAGE FOR EXPENSES
+                        emptyMessage: "No expenses yet",
                       ),
                       
                       // Tab 2: Income List
@@ -276,8 +276,9 @@ class AllExpensesPageState extends State<AllExpensesPage> {
                         expenses: incomeList,
                         onEdit: _editExpense,
                         onDelete: _deleteExpense,
-                        // 🔥 PASS CALLBACK
                         onMarkAsPaid: _handleMarkAsPaid,
+                        // 🔥 CUSTOM MESSAGE FOR INCOME
+                        emptyMessage: "No income yet",
                       ),
                     ],
                   );

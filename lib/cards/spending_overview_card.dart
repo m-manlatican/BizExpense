@@ -3,13 +3,11 @@ import 'package:expense_tracker_3_0/cards/white_card.dart';
 import 'package:expense_tracker_3_0/widgets/line_chart_painter.dart';
 import 'package:flutter/material.dart';
 
-// 🔥 NEW: Enum for Time Ranges
 enum ChartTimeRange { day, week, month }
 
 class SpendingOverviewCard extends StatelessWidget {
   final List<double> spendingPoints;
   final List<String> dateLabels;
-  // 🔥 NEW: Control parameters
   final ChartTimeRange selectedRange;
   final ValueChanged<ChartTimeRange> onRangeChanged;
 
@@ -23,9 +21,9 @@ class SpendingOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ensure we have at least 2 points to draw a line
     final points = spendingPoints.isEmpty ? [0.0, 0.0] : spendingPoints;
     
-    // Calculate trend (Last point vs First point)
     final double growth = points.last - points.first;
     final bool isUp = growth >= 0;
 
@@ -65,7 +63,7 @@ class SpendingOverviewCard extends StatelessWidget {
           
           const SizedBox(height: 16),
 
-          // 🔥 TIME RANGE SELECTOR
+          // TIME RANGE SELECTOR
           Container(
             height: 32,
             padding: const EdgeInsets.all(2),
@@ -84,30 +82,63 @@ class SpendingOverviewCard extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          // Chart Area
-          SizedBox(
-            height: 140,
-            child: CustomPaint(
-              painter: LineChartPainter(points),
-              child: Container(),
-            ),
-          ),
-          const SizedBox(height: 12),
+          // 🔥 CHART & LABELS (Aligned via LayoutBuilder)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final count = points.length;
+              // Avoid division by zero
+              final stepWidth = count > 1 ? width / (count - 1) : 0.0;
 
-          // Labels Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: dateLabels.map((label) => Text(
-              label,
-              style: const TextStyle(fontSize: 10, color: Colors.black45),
-            )).toList(),
+              return Column(
+                children: [
+                  // Chart Area
+                  SizedBox(
+                    height: 140,
+                    width: width,
+                    child: CustomPaint(
+                      // Pass labels to painter if you want grid lines to match (optional)
+                      painter: LineChartPainter(points, showGridLines: true),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+
+                  // 🔥 LABELS AREA (Pixel-Perfect Alignment)
+                  SizedBox(
+                    height: 20,
+                    width: width,
+                    child: Stack(
+                      children: List.generate(dateLabels.length, (index) {
+                        final label = dateLabels[index];
+                        if (label.isEmpty) return const SizedBox.shrink();
+
+                        // Calculate exact X position to match the chart point
+                        final double xPos = index * stepWidth;
+
+                        return Positioned(
+                          left: xPos - 20, // Shift left by half width to center (assuming ~40 width)
+                          width: 40,
+                          top: 0,
+                          bottom: 0,
+                          child: Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 10, color: Colors.black45),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  // Helper for the toggle buttons
   Widget _buildRangeButton(String text, ChartTimeRange range) {
     final bool isSelected = range == selectedRange;
     return Expanded(
