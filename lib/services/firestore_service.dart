@@ -38,8 +38,18 @@ class FirestoreService {
   Stream<List<InventoryItem>> getLowStockStream() {
     final ref = _inventoryCollection;
     if (ref == null) return Stream.value([]);
-    return ref.where('quantity', isLessThan: 10).orderBy('quantity').limit(3).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => InventoryItem.fromMap(doc.id, doc.data() as Map<String, dynamic>)).toList();
+    
+    // 🔥 FIX: Filter 'where' first using the raw 'doc', THEN 'map' to InventoryItem
+    return ref.where('quantity', isLessThan: 10).orderBy('quantity').snapshots().map((snapshot) {
+      return snapshot.docs
+          .where((doc) {
+             final data = doc.data() as Map<String, dynamic>;
+             // Filter out items that are ignored
+             return data['isIgnored'] != true; 
+          })
+          .map((doc) => InventoryItem.fromMap(doc.id, doc.data() as Map<String, dynamic>))
+          .take(3) // Limit to 3 items after filtering
+          .toList();
     });
   }
 
@@ -53,15 +63,24 @@ class FirestoreService {
       final doc = snapshot.docs.first;
       await doc.reference.update({
         'quantity': FieldValue.increment(quantityChange),
-        'lastUpdated': Timestamp.now()
+        'lastUpdated': Timestamp.now(),
+        'isIgnored': false, // Un-ignore if we restock it manually
       });
     } else if (quantityChange > 0) {
       await ref.add({
         'name': queryName, 
         'quantity': quantityChange, 
-        'lastUpdated': Timestamp.now()
+        'lastUpdated': Timestamp.now(),
+        'isIgnored': false,
       });
     }
+  }
+
+  // Method to ignore a stock item
+  Future<void> ignoreInventoryItem(String itemId) async {
+    final ref = _inventoryCollection;
+    if (ref == null) return;
+    await ref.doc(itemId).update({'isIgnored': true});
   }
 
   // --- BUDGET METHODS ---
@@ -104,7 +123,6 @@ class FirestoreService {
     await ref.doc(expense.id).update(expense.toMap());
   }
 
-  // 🔥 NEW: Shortcut method to mark as paid
   Future<void> markAsPaid(String id) async {
     final ref = _userDoc?.collection('expenses');
     if (ref == null) throw Exception("User not logged in");

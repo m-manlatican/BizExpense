@@ -9,12 +9,14 @@ class AddExpensePage extends StatefulWidget {
   final String? prefillTitle;
   final String? prefillCategory;
   final TransactionType? prefillType;
+  final double? prefillPrice; // 🔥 NEW: For Restock functionality
 
   const AddExpensePage({
     super.key,
     this.prefillTitle,
     this.prefillCategory,
     this.prefillType,
+    this.prefillPrice,
   });
 
   @override
@@ -24,13 +26,12 @@ class AddExpensePage extends StatefulWidget {
 enum TransactionType { expense, income }
 
 class _AddExpensePageState extends State<AddExpensePage> {
-  final TextEditingController titleController = TextEditingController(); // Used for Expense (Text)
+  final TextEditingController titleController = TextEditingController(); 
   final TextEditingController priceController = TextEditingController();
   final TextEditingController qtyController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
   
   String? _selectedContactType; 
-  // 🔥 NEW: Selected Product for Income Dropdown
   String? _selectedProductDescription; 
 
   final FirestoreService _firestoreService = FirestoreService();
@@ -61,10 +62,13 @@ class _AddExpensePageState extends State<AddExpensePage> {
     }
     if (widget.prefillTitle != null) {
       titleController.text = widget.prefillTitle!;
-      // If income, try to preselect the dropdown
       if (_type == TransactionType.income) {
         _selectedProductDescription = widget.prefillTitle;
       }
+    }
+    // 🔥 FILL PRICE IF PROVIDED
+    if (widget.prefillPrice != null) {
+      priceController.text = widget.prefillPrice!.toStringAsFixed(2);
     }
     
     _selectedContactType = null;
@@ -78,7 +82,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
           : Expense.expenseCategories.first;
       
       _selectedContactType = null;
-      _selectedProductDescription = null; // Reset product selection
+      _selectedProductDescription = null; 
       
       titleController.clear();
       priceController.clear();
@@ -113,10 +117,14 @@ class _AddExpensePageState extends State<AddExpensePage> {
   }
 
   Future<void> _saveTransaction(double availableBalance) async {
-    // 🔥 LOGIC: Use Dropdown value for Income, Text Controller for Expense
+    // 🔥 LOGIC: If "Other" is selected in dropdown, use titleController.
     String title = '';
     if (_type == TransactionType.income) {
-      title = _selectedProductDescription ?? '';
+      if (_selectedProductDescription == "Other") {
+        title = titleController.text.trim(); // Take from text field
+      } else {
+        title = _selectedProductDescription ?? '';
+      }
     } else {
       title = titleController.text.trim();
     }
@@ -164,12 +172,13 @@ class _AddExpensePageState extends State<AddExpensePage> {
     try {
       setState(() => isLoading = true);
 
-      // 🔥 STOCK LOGIC: Recognizes both 'Product Sales' (Income) and 'Product' (Expense)
+      // STOCK LOGIC
       if (_type == TransactionType.income && selectedCategory == "Product Sales") {
+         // Don't deduct stock if "Other" was typed unless it matches an existing product, 
+         // but generally "Other" implies ad-hoc. We will still try to update stock if name matches.
          await _firestoreService.updateStock(title, -(finalQty ?? 1)); 
       } 
       else if (_type == TransactionType.expense && (selectedCategory == "Inventory" || selectedCategory == "Product")) {
-         // Works for both "Inventory" (Old) and "Product" (New)
          bool updateStock = await showDialog(
            context: context,
            builder: (ctx) => AlertDialog(
@@ -262,8 +271,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
           builder: (context, expenseSnapshot) {
             if (expenseSnapshot.connectionState == ConnectionState.waiting) return const Scaffold(backgroundColor: AppColors.background, body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
 
-            // 🔥 EXTRACT PRODUCTS FOR DROPDOWN
-            // We get all expenses, filter for 'Product' category (or Inventory), and get unique titles.
             List<String> productList = [];
             double totalSpent = 0.0;
             double totalIncome = 0.0;
@@ -271,14 +278,18 @@ class _AddExpensePageState extends State<AddExpensePage> {
             if (expenseSnapshot.hasData) {
               final all = expenseSnapshot.data!.toList();
               
-              // Logic for Dropdown: Extract unique titles where category is "Product"
               final products = all
-                  .where((e) => e.category == 'Product') // Filter strictly for 'Product' as requested
+                  .where((e) => e.category == 'Product') 
                   .map((e) => e.title)
-                  .toSet() // Remove duplicates
+                  .toSet() 
                   .toList();
-              products.sort(); // Alphabetical order
+              products.sort(); 
               productList = products;
+              
+              // 🔥 NEW: Add "Other" to the list so user can select it
+              if (!productList.contains("Other")) {
+                productList.add("Other");
+              }
 
               totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
               totalSpent = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
@@ -334,8 +345,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                           const FormLabel('Description'), 
                           const SizedBox(height: 6),
                           
-                          // 🔥 UI SWITCH: Dropdown for Income, Text for Expense
-                          if (isIncome)
+                          if (isIncome) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               decoration: BoxDecoration(
@@ -357,12 +367,21 @@ class _AddExpensePageState extends State<AddExpensePage> {
                                     return DropdownMenuItem(value: value, child: Text(value));
                                   }).toList(),
                                   onChanged: productList.isEmpty 
-                                    ? null // Disable if no products
+                                    ? null 
                                     : (newValue) => setState(() => _selectedProductDescription = newValue),
                                 ),
                               ),
-                            )
-                          else
+                            ),
+                            // 🔥 SHOW TEXTFIELD IF "Other" IS SELECTED
+                            if (_selectedProductDescription == "Other") ...[
+                              const SizedBox(height: 12),
+                              RoundedTextField(
+                                controller: titleController, 
+                                hintText: 'Enter custom product name...', 
+                                textInputAction: TextInputAction.next,
+                              ),
+                            ]
+                          ] else
                             RoundedTextField(
                               controller: titleController, 
                               hintText: 'e.g. Inventory Restock', 

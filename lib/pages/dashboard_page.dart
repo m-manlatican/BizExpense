@@ -30,7 +30,6 @@ class _DashboardPageState extends State<DashboardPage> {
   late Stream<String> _userNameStream;
   late Stream<List<InventoryItem>> _lowStockStream; 
 
-  // 🔥 UPDATED: Default is now WEEK (removed day)
   ChartTimeRange _selectedChartRange = ChartTimeRange.week;
 
   @override
@@ -42,14 +41,12 @@ class _DashboardPageState extends State<DashboardPage> {
     _lowStockStream = _firestoreService.getLowStockStream(); 
   }
 
-  // 🔥 UPDATED CHART LOGIC (Removed Day loop)
   Map<String, dynamic> _getChartData(List<Expense> expenses) {
     List<double> values = [];
     List<String> dates = [];
     DateTime now = DateTime.now();
 
     if (_selectedChartRange == ChartTimeRange.week) {
-      // 1. CHART FOR "WEEK" (LAST 7 DAYS)
       for (int i = 6; i >= 0; i--) {
         DateTime target = now.subtract(Duration(days: i));
         double dailySum = expenses.where((e) {
@@ -60,7 +57,6 @@ class _DashboardPageState extends State<DashboardPage> {
         dates.add("${target.month}/${target.day}");
       }
     } else {
-      // 2. CHART FOR "MONTH" (LAST 30 DAYS)
       for (int i = 29; i >= 0; i--) {
         DateTime target = now.subtract(Duration(days: i));
         double dailySum = expenses.where((e) {
@@ -68,8 +64,6 @@ class _DashboardPageState extends State<DashboardPage> {
           return e.isIncome && eDate.year == target.year && eDate.month == target.month && eDate.day == target.day;
         }).fold(0.0, (sum, item) => sum + item.amount);
         values.add(dailySum);
-        
-        // Label every 5 days
         if (i % 5 == 0) { 
           dates.add("${target.month}/${target.day}"); 
         } else { 
@@ -153,9 +147,11 @@ class _DashboardPageState extends State<DashboardPage> {
                     double pendingExpense = 0.0;
                     List<double> chartValues = [];
                     List<String> chartDates = [];
+                    List<Expense> allExpensesList = [];
 
                     if (expenseSnapshot.hasData) {
                       final all = expenseSnapshot.data!.toList();
+                      allExpensesList = all; // Pass this to child
                       totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
                       totalExpenses = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
                       pendingIncome = all.where((e) => e.isIncome && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
@@ -170,7 +166,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       _DashboardContent(
                         manualCapital: manualCapital,
                         userName: userName,
-                        lowStockItems: lowStockItems, 
+                        lowStockItems: lowStockItems,
+                        allExpenses: allExpensesList, // 🔥 NEW: Passing all expenses for price lookup
                         totalIncome: totalIncome,
                         totalExpenses: totalExpenses,
                         pendingIncome: pendingIncome,
@@ -204,11 +201,15 @@ class _DashboardPageState extends State<DashboardPage> {
                         showUnselectedLabels: true,
                         elevation: 15,
                       ),
-                      floatingActionButton: FloatingActionButton(
-                        backgroundColor: AppColors.primary,
-                        heroTag: 'add_expense_btn',
-                        onPressed: () => Navigator.pushNamed(context, '/add_expense'),
-                        child: const Icon(Icons.add, color: Colors.white, size: 30),
+                      // 🔥 UPDATED: Wrapped FAB in Padding to move it higher
+                      floatingActionButton: Padding(
+                        padding: const EdgeInsets.only(bottom: 60.0), // Moves FAB up above navigation/content
+                        child: FloatingActionButton(
+                          backgroundColor: AppColors.primary,
+                          heroTag: 'add_expense_btn',
+                          onPressed: () => Navigator.pushNamed(context, '/add_expense'),
+                          child: const Icon(Icons.add, color: Colors.white, size: 30),
+                        ),
                       ),
                       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
                     );
@@ -227,6 +228,7 @@ class _DashboardContent extends StatelessWidget {
   final double manualCapital;
   final String userName;
   final List<InventoryItem> lowStockItems;
+  final List<Expense> allExpenses; // 🔥 NEW
   final double totalIncome;
   final double totalExpenses;
   final double pendingIncome;
@@ -242,6 +244,7 @@ class _DashboardContent extends StatelessWidget {
     required this.manualCapital,
     required this.userName,
     required this.lowStockItems, 
+    required this.allExpenses, // 🔥 NEW
     required this.totalIncome,
     required this.totalExpenses,
     required this.pendingIncome,
@@ -271,7 +274,8 @@ class _DashboardContent extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 if (lowStockItems.isNotEmpty) ...[
-                  LowStockCard(items: lowStockItems),
+                  // 🔥 UPDATED: Pass expenses to card
+                  LowStockCard(items: lowStockItems, allExpenses: allExpenses),
                   const SizedBox(height: 16),
                 ],
                 
@@ -300,7 +304,7 @@ class _DashboardContent extends StatelessWidget {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.2), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.secondary.withOpacity(0.5))),
+                  decoration: BoxDecoration(color: AppColors.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.secondary.withOpacity(0.5))),
                   child: Row(children: [
                     const Icon(Icons.account_balance_wallet, color: AppColors.primary),
                     const SizedBox(width: 12),
