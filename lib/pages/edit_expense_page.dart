@@ -132,7 +132,49 @@ class _EditExpensePageState extends State<EditExpensePage> {
     setState(() => isLoading = true); 
 
     try {
-      final categoryDetails = Expense.getCategoryDetails(category);
+      // ---------------------------------------------------------
+      // INVENTORY SYNC LOGIC
+      // ---------------------------------------------------------
+      bool isInventoryCat(String c) => c == 'Inventory' || c == 'Product';
+
+      final String oldCategory = widget.expense.category;
+      final String newCategory = category;
+      
+      final bool wasExpense = !widget.expense.isIncome && !widget.expense.isCapital;
+      final bool isExpense = !isIncome && !isCapital;
+
+      final bool wasInventoryItem = wasExpense && isInventoryCat(oldCategory);
+      final bool isInventoryItem = isExpense && isInventoryCat(newCategory);
+
+      final String oldTitle = widget.expense.title;
+      final String newTitle = nameController.text.trim();
+      final int oldQty = widget.expense.quantity ?? 1;
+      final int newQty = finalQty ?? 1;
+
+      // 1. Inventory -> Other: REMOVE Stock
+      if (wasInventoryItem && !isInventoryItem) {
+        await _firestoreService.updateStock(oldTitle, -oldQty);
+      }
+      
+      // 2. Other -> Inventory: ADD Stock
+      else if (!wasInventoryItem && isInventoryItem) {
+        await _firestoreService.updateStock(newTitle, newQty);
+      }
+      
+      // 3. Inventory -> Inventory (Change details)
+      else if (wasInventoryItem && isInventoryItem) {
+        if (oldTitle != newTitle) {
+          // Name changed: Remove old, add new
+          await _firestoreService.updateStock(oldTitle, -oldQty);
+          await _firestoreService.updateStock(newTitle, newQty);
+        } else if (oldQty != newQty) {
+          // Only qty changed: Adjust diff
+          final int diff = newQty - oldQty;
+          await _firestoreService.updateStock(newTitle, diff);
+        }
+      }
+      // ---------------------------------------------------------
+
       final dateLabel = "${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.year}";
 
       final updatedExpense = Expense(
@@ -144,11 +186,7 @@ class _EditExpensePageState extends State<EditExpensePage> {
         dateLabel: dateLabel, 
         date: Timestamp.fromDate(selectedDate), 
         notes: notesController.text.trim(),
-        
         contactName: _selectedContactType ?? '',
-        
-        iconCodePoint: (categoryDetails['icon'] as IconData).codePoint,
-        iconColorValue: (categoryDetails['color'] as Color).value,
         isIncome: isIncome,
         isCapital: isCapital, 
         isPaid: isPaid,       
@@ -180,7 +218,6 @@ class _EditExpensePageState extends State<EditExpensePage> {
     }
     
     List<String> displayContactTypes = isIncome ? Expense.incomeContactTypes : Expense.expenseContactTypes;
-
     String dateText = "${selectedDate.month}/${selectedDate.day}/${selectedDate.year}";
 
     return Scaffold(
@@ -198,7 +235,6 @@ class _EditExpensePageState extends State<EditExpensePage> {
               ],
             ),
           ),
-          
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -210,20 +246,8 @@ class _EditExpensePageState extends State<EditExpensePage> {
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 18, color: AppColors.textSecondary),
-                          const SizedBox(width: 12),
-                          Text("Date: $dateText", style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                          const Spacer(),
-                          const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
-                        ],
-                      ),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade300)),
+                      child: Row(children: [const Icon(Icons.calendar_today, size: 18, color: AppColors.textSecondary), const SizedBox(width: 12), Text("Date: $dateText", style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)), const Spacer(), const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary)]),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -268,16 +292,11 @@ class _EditExpensePageState extends State<EditExpensePage> {
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: _selectedContactType,
                           isExpanded: true,
-                          // 🔥 UPDATED: Added Hint Text
                           hint: const Text("Select Type", style: TextStyle(color: AppColors.textSecondary)),
                           icon: const Icon(Icons.keyboard_arrow_down_rounded),
                           borderRadius: BorderRadius.circular(14),
@@ -291,20 +310,7 @@ class _EditExpensePageState extends State<EditExpensePage> {
 
                   const FormLabel('Category'), 
                   const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16), 
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)), 
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: category, 
-                        isExpanded: true, 
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded), 
-                        borderRadius: BorderRadius.circular(14), 
-                        items: displayCategories.map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(), 
-                        onChanged: (newValue) => setState(() => category = newValue!)
-                      ),
-                    ),
-                  ), 
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)), child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: category, isExpanded: true, icon: const Icon(Icons.keyboard_arrow_down_rounded), borderRadius: BorderRadius.circular(14), items: displayCategories.map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(), onChanged: (newValue) => setState(() => category = newValue!)))), 
                   const SizedBox(height: 16),
                   
                   const FormLabel('Notes (Optional)'), 
@@ -316,9 +322,7 @@ class _EditExpensePageState extends State<EditExpensePage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: isLoading ? null : _handleUpdateExpense,
-                      icon: isLoading 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.save, color: Colors.white),
+                      icon: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save, color: Colors.white),
                       label: Text(isLoading ? "Updating..." : "Update Record", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                       style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 4),
                     ),

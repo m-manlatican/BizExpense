@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker_3_0/app_colors.dart';
 import 'package:expense_tracker_3_0/models/all_expense_model.dart';
+import 'package:expense_tracker_3_0/models/inventory_model.dart';
 import 'package:expense_tracker_3_0/services/firestore_service.dart';
 import 'package:flutter/material.dart';
 import 'package:expense_tracker_3_0/widgets/form_fields.dart';
@@ -9,7 +10,7 @@ class AddExpensePage extends StatefulWidget {
   final String? prefillTitle;
   final String? prefillCategory;
   final TransactionType? prefillType;
-  final double? prefillPrice; // 🔥 NEW: For Restock functionality
+  final double? prefillPrice; 
 
   const AddExpensePage({
     super.key,
@@ -37,6 +38,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   final FirestoreService _firestoreService = FirestoreService();
   late Stream<List<Expense>> _expensesStream;
   late Stream<double> _budgetStream; 
+  late Stream<List<InventoryItem>> _inventoryStream;
 
   TransactionType _type = TransactionType.expense; 
   String selectedCategory = Expense.expenseCategories.first;
@@ -49,6 +51,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     super.initState();
     _expensesStream = _firestoreService.getExpensesStream();
     _budgetStream = _firestoreService.getUserBudgetStream();
+    _inventoryStream = _firestoreService.getAllInventoryStream();
 
     if (widget.prefillType != null) {
       _type = widget.prefillType!;
@@ -60,13 +63,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
           ? Expense.incomeCategories.first 
           : Expense.expenseCategories.first;
     }
+    
     if (widget.prefillTitle != null) {
       titleController.text = widget.prefillTitle!;
-      if (_type == TransactionType.income) {
-        _selectedProductDescription = widget.prefillTitle;
-      }
+      _selectedProductDescription = widget.prefillTitle;
     }
-    // 🔥 FILL PRICE IF PROVIDED
     if (widget.prefillPrice != null) {
       priceController.text = widget.prefillPrice!.toStringAsFixed(2);
     }
@@ -117,11 +118,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
   }
 
   Future<void> _saveTransaction(double availableBalance) async {
-    // 🔥 LOGIC: If "Other" is selected in dropdown, use titleController.
     String title = '';
+    
     if (_type == TransactionType.income) {
       if (_selectedProductDescription == "Other") {
-        title = titleController.text.trim(); // Take from text field
+        title = titleController.text.trim(); 
       } else {
         title = _selectedProductDescription ?? '';
       }
@@ -169,34 +170,45 @@ class _AddExpensePageState extends State<AddExpensePage> {
       }
     }
 
+    // 🔥 UPDATED: Logic moved BEFORE setting isLoading
+    // If it's an expense for Inventory/Product, ask for confirmation.
+    if (_type == TransactionType.expense && (selectedCategory == "Inventory" || selectedCategory == "Product")) {
+       bool? confirm = await showDialog<bool>(
+         context: context,
+         builder: (ctx) => AlertDialog(
+           title: const Text("Update Stock?", style: TextStyle(fontWeight: FontWeight.bold)),
+           content: Text("Do you want to add ${finalQty ?? 1} units to '$title' inventory?"),
+           actions: [
+             TextButton(
+               onPressed: () => Navigator.pop(ctx, false), // Returns false
+               child: const Text("No")
+             ),
+             TextButton(
+               onPressed: () => Navigator.pop(ctx, true), // Returns true
+               child: const Text("Yes", style: TextStyle(fontWeight: FontWeight.bold))
+             ),
+           ],
+         )
+       );
+
+       // 🔥 FIX: If user clicks "No" (false) or dismisses dialog (null), STOP everything.
+       if (confirm != true) {
+         return; 
+       }
+    }
+
     try {
       setState(() => isLoading = true);
 
-      // STOCK LOGIC
+      // STOCK LOGIC (Actual Update)
       if (_type == TransactionType.income && selectedCategory == "Product Sales") {
-         // Don't deduct stock if "Other" was typed unless it matches an existing product, 
-         // but generally "Other" implies ad-hoc. We will still try to update stock if name matches.
          await _firestoreService.updateStock(title, -(finalQty ?? 1)); 
       } 
       else if (_type == TransactionType.expense && (selectedCategory == "Inventory" || selectedCategory == "Product")) {
-         bool updateStock = await showDialog(
-           context: context,
-           builder: (ctx) => AlertDialog(
-             title: const Text("Update Stock?", style: TextStyle(fontWeight: FontWeight.bold)),
-             content: Text("Do you want to add ${finalQty ?? 1} units to '$title' inventory?"),
-             actions: [
-               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("No")),
-               TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Yes", style: TextStyle(fontWeight: FontWeight.bold))),
-             ],
-           )
-         ) ?? false;
-
-         if (updateStock) {
-           await _firestoreService.updateStock(title, finalQty ?? 1);
-         }
+         // We already confirmed above, so proceed directly.
+         await _firestoreService.updateStock(title, finalQty ?? 1);
       }
 
-      final categoryDetails = Expense.getCategoryDetails(selectedCategory);
       final dateLabel = "${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.year}";
 
       final newTransaction = Expense(
@@ -212,8 +224,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
         dateLabel: dateLabel,
         date: Timestamp.fromDate(_selectedDate),
         notes: notesController.text.trim(),
-        iconCodePoint: (categoryDetails['icon'] as IconData).codePoint,
-        iconColorValue: (categoryDetails['color'] as Color).value,
       );
 
       await _firestoreService.addExpense(newTransaction);
@@ -269,181 +279,164 @@ class _AddExpensePageState extends State<AddExpensePage> {
         return StreamBuilder<List<Expense>>(
           stream: _expensesStream,
           builder: (context, expenseSnapshot) {
-            if (expenseSnapshot.connectionState == ConnectionState.waiting) return const Scaffold(backgroundColor: AppColors.background, body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
-
-            List<String> productList = [];
-            double totalSpent = 0.0;
-            double totalIncome = 0.0;
             
-            if (expenseSnapshot.hasData) {
-              final all = expenseSnapshot.data!.toList();
-              
-              final products = all
-                  .where((e) => e.category == 'Product') 
-                  .map((e) => e.title)
-                  .toSet() 
-                  .toList();
-              products.sort(); 
-              productList = products;
-              
-              // 🔥 NEW: Add "Other" to the list so user can select it
-              if (!productList.contains("Other")) {
-                productList.add("Other");
-              }
+            return StreamBuilder<List<InventoryItem>>(
+              stream: _inventoryStream,
+              builder: (context, inventorySnapshot) {
+                
+                if (expenseSnapshot.connectionState == ConnectionState.waiting) return const Scaffold(backgroundColor: AppColors.background, body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
 
-              totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
-              totalSpent = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
-            }
-            final double cashOnHand = (manualCapital + totalIncome) - totalSpent;
+                List<String> productList = [];
+                double totalSpent = 0.0;
+                double totalIncome = 0.0;
+                
+                if (inventorySnapshot.hasData) {
+                  final items = inventorySnapshot.data!;
+                  productList = items.map((e) => e.name).toSet().toList();
+                  productList.sort();
+                }
+                
+                if (!productList.contains("Other")) {
+                  productList.add("Other");
+                }
 
-            return Scaffold(
-              backgroundColor: AppColors.background,
-              body: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
-                    decoration: const BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.vertical(bottom: Radius.circular(30))),
-                    child: Row(
-                      children: [
-                        InkWell(onTap: () => Navigator.pop(context), child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.arrow_back, color: Colors.white, size: 20))),
-                        const Expanded(child: Center(child: Text("Add Transaction", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)))),
-                        const SizedBox(width: 40),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            margin: const EdgeInsets.only(bottom: 24),
-                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(16)),
-                            child: Row(children: [Expanded(child: _buildToggleOption("Expense", !isIncome, AppColors.expense)), Expanded(child: _buildToggleOption("Income (Sales)", isIncome, AppColors.success))]),
-                          ),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            margin: const EdgeInsets.only(bottom: 24),
-                            decoration: BoxDecoration(color: cashOnHand <= 0 ? AppColors.expense.withOpacity(0.1) : AppColors.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: cashOnHand <= 0 ? AppColors.expense : AppColors.primary.withOpacity(0.3))),
-                            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(cashOnHand <= 0 ? "No Cash Available" : "Current Cash on Hand", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cashOnHand <= 0 ? AppColors.expense : AppColors.primary)), const SizedBox(height: 4), Text("₱${cashOnHand.toStringAsFixed(2)}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary))]), Icon(Icons.account_balance_wallet, color: AppColors.primary.withOpacity(0.5), size: 32)]),
-                          ),
-                          
-                          InkWell(
-                            onTap: _pickDate,
-                            borderRadius: BorderRadius.circular(14),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade300)),
-                              child: Row(children: [const Icon(Icons.calendar_today, size: 18, color: AppColors.textSecondary), const SizedBox(width: 12), Text("Date: $dateText", style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)), const Spacer(), const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary)]),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
+                if (expenseSnapshot.hasData) {
+                  final all = expenseSnapshot.data!.toList();
+                  totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+                  totalSpent = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+                }
+                final double cashOnHand = (manualCapital + totalIncome) - totalSpent;
 
-                          const FormLabel('Description'), 
-                          const SizedBox(height: 6),
-                          
-                          if (isIncome) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: _selectedProductDescription,
-                                  isExpanded: true,
-                                  hint: Text(
-                                    productList.isEmpty ? "No products added yet" : "Select Product",
-                                    style: const TextStyle(color: AppColors.textSecondary)
-                                  ),
-                                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                                  borderRadius: BorderRadius.circular(14),
-                                  items: productList.map((String value) {
-                                    return DropdownMenuItem(value: value, child: Text(value));
-                                  }).toList(),
-                                  onChanged: productList.isEmpty 
-                                    ? null 
-                                    : (newValue) => setState(() => _selectedProductDescription = newValue),
-                                ),
-                              ),
-                            ),
-                            // 🔥 SHOW TEXTFIELD IF "Other" IS SELECTED
-                            if (_selectedProductDescription == "Other") ...[
-                              const SizedBox(height: 12),
-                              RoundedTextField(
-                                controller: titleController, 
-                                hintText: 'Enter custom product name...', 
-                                textInputAction: TextInputAction.next,
-                              ),
-                            ]
-                          ] else
-                            RoundedTextField(
-                              controller: titleController, 
-                              hintText: 'e.g. Inventory Restock', 
-                              textInputAction: TextInputAction.next
-                            ),
-                            
-                          const SizedBox(height: 16),
-                          
-                          Row(children: [
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const FormLabel('Price'), const SizedBox(height: 6), RoundedTextField(controller: priceController, prefix: const Text('₱', style: TextStyle(fontWeight: FontWeight.w600)), keyboardType: TextInputType.number, textInputAction: TextInputAction.next)])),
-                            const SizedBox(width: 12),
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const FormLabel('Qty (Optional)'), const SizedBox(height: 6), RoundedTextField(controller: qtyController, keyboardType: TextInputType.number, hintText: '1', textInputAction: TextInputAction.done)])),
-                          ]),
-                          const SizedBox(height: 16),
-                          
-                          CheckboxListTile(
-                            contentPadding: EdgeInsets.zero,
-                            activeColor: AppColors.primary,
-                            title: Text(isIncome ? "Payment Received?" : "Paid Immediately?", style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                            subtitle: Text(isPaid ? (isIncome ? "Cash added to balance." : "Cash deducted.") : (isIncome ? "Mark as Credit." : "Mark as Debt."), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                            value: isPaid,
-                            onChanged: (val) => setState(() => isPaid = val ?? true),
-                          ),
-                          const SizedBox(height: 10),
-
-                          if (!isCapital) ...[
-                            FormLabel(isIncome ? "Customer Type" : "Payee Type"),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: _selectedContactType,
-                                  isExpanded: true,
-                                  hint: const Text("Select Type", style: TextStyle(color: AppColors.textSecondary)),
-                                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                                  borderRadius: BorderRadius.circular(14),
-                                  items: currentContactTypes.map((String value) {
-                                    return DropdownMenuItem(value: value, child: Text(value));
-                                  }).toList(),
-                                  onChanged: (newValue) => setState(() => _selectedContactType = newValue),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
+                return Scaffold(
+                  backgroundColor: AppColors.background,
+                  body: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
+                        decoration: const BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.vertical(bottom: Radius.circular(30))),
+                        child: Row(
+                          children: [
+                            InkWell(onTap: () => Navigator.pop(context), child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.arrow_back, color: Colors.white, size: 20))),
+                            const Expanded(child: Center(child: Text("Add Transaction", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)))),
+                            const SizedBox(width: 40),
                           ],
-
-                          const FormLabel('Category'), const SizedBox(height: 6),
-                          Container(padding: const EdgeInsets.symmetric(horizontal: 16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)), child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: selectedCategory, isExpanded: true, icon: const Icon(Icons.keyboard_arrow_down_rounded), borderRadius: BorderRadius.circular(14), items: currentCategories.map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(), onChanged: (newValue) => setState(() => selectedCategory = newValue!)))), const SizedBox(height: 16),
-                          const FormLabel('Notes (Optional)'), const SizedBox(height: 6), RoundedTextField(controller: notesController, hintText: 'Add details...', maxLines: 3), const SizedBox(height: 24),
-                          SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: isLoading ? null : () => _saveTransaction(cashOnHand), icon: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check_circle_outline, color: Colors.white), label: Text(isLoading ? "Saving..." : "Save Record", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 4))),
-                        ],
+                        ),
                       ),
-                    ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                margin: const EdgeInsets.only(bottom: 24),
+                                decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(16)),
+                                child: Row(children: [Expanded(child: _buildToggleOption("Expense", !isIncome, AppColors.expense)), Expanded(child: _buildToggleOption("Income (Sales)", isIncome, AppColors.success))]),
+                              ),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                margin: const EdgeInsets.only(bottom: 24),
+                                decoration: BoxDecoration(color: cashOnHand <= 0 ? AppColors.expense.withOpacity(0.1) : AppColors.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: cashOnHand <= 0 ? AppColors.expense : AppColors.primary.withOpacity(0.3))),
+                                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(cashOnHand <= 0 ? "No Cash Available" : "Current Cash on Hand", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cashOnHand <= 0 ? AppColors.expense : AppColors.primary)), const SizedBox(height: 4), Text("₱${cashOnHand.toStringAsFixed(2)}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary))]), Icon(Icons.account_balance_wallet, color: AppColors.primary.withOpacity(0.5), size: 32)]),
+                              ),
+                              
+                              InkWell(
+                                onTap: _pickDate,
+                                borderRadius: BorderRadius.circular(14),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade300)),
+                                  child: Row(children: [const Icon(Icons.calendar_today, size: 18, color: AppColors.textSecondary), const SizedBox(width: 12), Text("Date: $dateText", style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)), const Spacer(), const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary)]),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              const FormLabel('Description'), 
+                              const SizedBox(height: 6),
+                              
+                              if (isIncome) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: Colors.grey.shade200),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: _selectedProductDescription,
+                                      isExpanded: true,
+                                      hint: Text(productList.isEmpty ? "No products added yet" : "Select Product", style: const TextStyle(color: AppColors.textSecondary)),
+                                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                      borderRadius: BorderRadius.circular(14),
+                                      items: productList.map((String value) {
+                                        return DropdownMenuItem(value: value, child: Text(value));
+                                      }).toList(),
+                                      onChanged: productList.isEmpty ? null : (newValue) => setState(() => _selectedProductDescription = newValue),
+                                    ),
+                                  ),
+                                ),
+                                if (_selectedProductDescription == "Other") ...[
+                                  const SizedBox(height: 12),
+                                  RoundedTextField(controller: titleController, hintText: 'Enter custom product name...', textInputAction: TextInputAction.next),
+                                ]
+                              ] else
+                                RoundedTextField(controller: titleController, hintText: 'e.g. Inventory Restock, Rent', textInputAction: TextInputAction.next),
+                                
+                              const SizedBox(height: 16),
+                              
+                              Row(children: [
+                                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const FormLabel('Price'), const SizedBox(height: 6), RoundedTextField(controller: priceController, prefix: const Text('₱', style: TextStyle(fontWeight: FontWeight.w600)), keyboardType: TextInputType.number, textInputAction: TextInputAction.next)])),
+                                const SizedBox(width: 12),
+                                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const FormLabel('Qty (Optional)'), const SizedBox(height: 6), RoundedTextField(controller: qtyController, keyboardType: TextInputType.number, hintText: '1', textInputAction: TextInputAction.done)])),
+                              ]),
+                              const SizedBox(height: 16),
+                              
+                              CheckboxListTile(
+                                contentPadding: EdgeInsets.zero,
+                                activeColor: AppColors.primary,
+                                title: Text(isIncome ? "Payment Received?" : "Paid Immediately?", style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                                subtitle: Text(isPaid ? (isIncome ? "Cash added to balance." : "Cash deducted.") : (isIncome ? "Mark as Credit." : "Mark as Debt."), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                value: isPaid,
+                                onChanged: (val) => setState(() => isPaid = val ?? true),
+                              ),
+                              const SizedBox(height: 10),
+
+                              if (!isCapital) ...[
+                                FormLabel(isIncome ? "Customer Type" : "Payee Type"),
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: _selectedContactType,
+                                      isExpanded: true,
+                                      hint: const Text("Select Type", style: TextStyle(color: AppColors.textSecondary)),
+                                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                      borderRadius: BorderRadius.circular(14),
+                                      items: currentContactTypes.map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                                      onChanged: (newValue) => setState(() => _selectedContactType = newValue),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              const FormLabel('Category'), const SizedBox(height: 6),
+                              Container(padding: const EdgeInsets.symmetric(horizontal: 16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)), child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: selectedCategory, isExpanded: true, icon: const Icon(Icons.keyboard_arrow_down_rounded), borderRadius: BorderRadius.circular(14), items: currentCategories.map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(), onChanged: (newValue) => setState(() => selectedCategory = newValue!)))), const SizedBox(height: 16),
+                              const FormLabel('Notes (Optional)'), const SizedBox(height: 6), RoundedTextField(controller: notesController, hintText: 'Add details...', maxLines: 3), const SizedBox(height: 24),
+                              SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: isLoading ? null : () => _saveTransaction(cashOnHand), icon: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check_circle_outline, color: Colors.white), label: Text(isLoading ? "Saving..." : "Save Record", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 4))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              }
             );
           }
         );

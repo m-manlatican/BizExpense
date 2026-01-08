@@ -9,8 +9,7 @@ class Expense {
   final String dateLabel;
   final Timestamp date;
   final String notes;
-  final int iconCodePoint; 
-  final int iconColorValue; 
+  // 🔥 REMOVED: iconCodePoint & iconColorValue (Caused Release Error)
   final bool isDeleted;
   final bool isIncome;
   final bool isCapital;
@@ -26,8 +25,7 @@ class Expense {
     required this.dateLabel,
     required this.date,
     required this.notes,
-    required this.iconCodePoint,
-    required this.iconColorValue,
+    // 🔥 REMOVED: No longer required in constructor
     this.isDeleted = false,
     this.isIncome = false,
     this.isCapital = false,
@@ -36,7 +34,6 @@ class Expense {
     this.contactName = '', 
   });
 
-  // 🔥 UPDATED: Added 'Product' to the list
   static const List<String> expenseCategories = [
     'Product', 'Inventory', 'Rent', 'Utilities', 'Labor', 'Marketing', 'Equipment', 'Tax', 'Other'
   ];
@@ -57,11 +54,11 @@ class Expense {
     'Customer', 'Client', 'Payer', 'Other'
   ];
 
+  // This map is now the SOURCE OF TRUTH for icons
   static Map<String, dynamic> getCategoryDetails(String category) {
     switch (category) {
       // EXPENSES
-      // 🔥 NEW: Product Style
-      case 'Product': return {'icon': Icons.check_box_outline_blank, 'color': const Color(0xFF4A90E2)}; // Blue
+      case 'Product': return {'icon': Icons.check_box_outline_blank, 'color': const Color(0xFF4A90E2)}; 
       case 'Inventory': return {'icon': Icons.inventory_2, 'color': const Color(0xFFE76F51)}; 
       case 'Rent': return {'icon': Icons.store, 'color': const Color(0xFF264653)}; 
       case 'Utilities': return {'icon': Icons.bolt, 'color': const Color(0xFFE9C46A)}; 
@@ -93,8 +90,7 @@ class Expense {
       'dateLabel': dateLabel,
       'date': date,
       'notes': notes,
-      'iconCodePoint': iconCodePoint,
-      'iconColorValue': iconColorValue,
+      // 🔥 REMOVED: iconCodePoint/iconColorValue
       'isDeleted': isDeleted,
       'isIncome': isIncome,
       'isCapital': isCapital,
@@ -113,8 +109,7 @@ class Expense {
       dateLabel: map['dateLabel'] ?? '',
       date: map['date'] as Timestamp? ?? Timestamp.now(),
       notes: map['notes'] ?? '',
-      iconCodePoint: map['iconCodePoint'] ?? Icons.error.codePoint,
-      iconColorValue: map['iconColorValue'] ?? 0xFF000000,
+      // 🔥 REMOVED: Reading icon integers
       isDeleted: map['isDeleted'] ?? false,
       isIncome: map['isIncome'] ?? false,
       isCapital: map['isCapital'] ?? false,
@@ -124,6 +119,7 @@ class Expense {
     );
   }
 
-  IconData get icon => IconData(iconCodePoint, fontFamily: 'MaterialIcons');
-  Color get iconColor => Color(iconColorValue);
+  // 🔥 NEW SAFE GETTERS
+  IconData get icon => getCategoryDetails(category)['icon'] as IconData;
+  Color get iconColor => getCategoryDetails(category)['color'] as Color;
 }

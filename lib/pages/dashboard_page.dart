@@ -2,6 +2,7 @@ import 'package:expense_tracker_3_0/app_colors.dart';
 import 'package:expense_tracker_3_0/cards/low_stock_card.dart'; 
 import 'package:expense_tracker_3_0/cards/spending_overview_card.dart';
 import 'package:expense_tracker_3_0/cards/total_budget_card.dart';
+import 'package:expense_tracker_3_0/cards/product_list_card.dart';
 import 'package:expense_tracker_3_0/models/all_expense_model.dart';
 import 'package:expense_tracker_3_0/models/inventory_model.dart'; 
 import 'package:expense_tracker_3_0/pages/all_expenses_page.dart';
@@ -10,7 +11,7 @@ import 'package:expense_tracker_3_0/services/auth_service.dart';
 import 'package:expense_tracker_3_0/services/firestore_service.dart';
 import 'package:expense_tracker_3_0/widgets/head_clipper.dart';
 import 'package:expense_tracker_3_0/widgets/header_title.dart';
-import 'package:expense_tracker_3_0/widgets/skeleton_loader.dart';
+// REMOVED: import 'package:expense_tracker_3_0/widgets/skeleton_loader.dart'; // No longer needed
 import 'package:flutter/material.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -29,48 +30,65 @@ class _DashboardPageState extends State<DashboardPage> {
   late Stream<double> _budgetStream;
   late Stream<String> _userNameStream;
   late Stream<List<InventoryItem>> _lowStockStream; 
+  late Stream<List<InventoryItem>> _inventoryStream;
 
   ChartTimeRange _selectedChartRange = ChartTimeRange.week;
 
   @override
   void initState() {
     super.initState();
+    _initStreams();
+  }
+
+  void _initStreams() {
     _expensesStream = _firestoreService.getExpensesStream();
     _budgetStream = _firestoreService.getUserBudgetStream();
     _userNameStream = _firestoreService.getUserName();
     _lowStockStream = _firestoreService.getLowStockStream(); 
+    _inventoryStream = _firestoreService.getAllInventoryStream();
+  }
+
+  Future<void> _refreshData() async {
+    // Reduced delay for snappier feel
+    await Future.delayed(const Duration(milliseconds: 500));
+    setState(() {
+      _initStreams(); 
+    });
   }
 
   Map<String, dynamic> _getChartData(List<Expense> expenses) {
     List<double> values = [];
     List<String> dates = [];
     DateTime now = DateTime.now();
+    int daysToLookBack = _selectedChartRange == ChartTimeRange.week ? 6 : 29;
 
-    if (_selectedChartRange == ChartTimeRange.week) {
-      for (int i = 6; i >= 0; i--) {
-        DateTime target = now.subtract(Duration(days: i));
-        double dailySum = expenses.where((e) {
-          DateTime eDate = e.date.toDate();
-          return e.isIncome && eDate.year == target.year && eDate.month == target.month && eDate.day == target.day;
-        }).fold(0.0, (sum, item) => sum + item.amount);
-        values.add(dailySum);
-        dates.add("${target.month}/${target.day}");
-      }
-    } else {
-      for (int i = 29; i >= 0; i--) {
-        DateTime target = now.subtract(Duration(days: i));
-        double dailySum = expenses.where((e) {
-          DateTime eDate = e.date.toDate();
-          return e.isIncome && eDate.year == target.year && eDate.month == target.month && eDate.day == target.day;
-        }).fold(0.0, (sum, item) => sum + item.amount);
-        values.add(dailySum);
-        if (i % 5 == 0) { 
-          dates.add("${target.month}/${target.day}"); 
-        } else { 
-          dates.add(""); 
-        }
+    Map<String, double> dailyTotals = {};
+    
+    for (var e in expenses) {
+      if (e.isIncome) {
+        DateTime d = e.date.toDate();
+        String key = "${d.month}/${d.day}/${d.year}";
+        dailyTotals[key] = (dailyTotals[key] ?? 0.0) + e.amount;
       }
     }
+
+    for (int i = daysToLookBack; i >= 0; i--) {
+      DateTime target = now.subtract(Duration(days: i));
+      String key = "${target.month}/${target.day}/${target.year}";
+      
+      values.add(dailyTotals[key] ?? 0.0);
+
+      if (_selectedChartRange == ChartTimeRange.week) {
+         dates.add("${target.month}/${target.day}");
+      } else {
+         if (i % 5 == 0) {
+           dates.add("${target.month}/${target.day}");
+         } else {
+           dates.add("");
+         }
+      }
+    }
+
     return {'values': values, 'dates': dates};
   }
 
@@ -93,24 +111,28 @@ class _DashboardPageState extends State<DashboardPage> {
     if (confirm == true) await _authService.signOut();
   }
 
+  // 🔥 UPDATED: Much simpler, cleaner loading screen
   Widget _buildLoadingDashboard() {
-    return SafeArea(
-      child: Stack(
+    return Scaffold( // Use Scaffold to ensure proper white background
+      backgroundColor: AppColors.background,
+      body: Stack(
         children: [
-          Positioned.fill(child: Align(alignment: Alignment.topCenter, child: ClipPath(clipper: HeaderClipper(), child: Container(height: 260, color: AppColors.primary)))),
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                const SizedBox(height: 60), 
-                const SkeletonLoader(height: 80, width: double.infinity),
-                const SizedBox(height: 12),
-                Row(children: [Expanded(child: SkeletonLoader(height: 100, width: double.infinity)), SizedBox(width: 12), Expanded(child: SkeletonLoader(height: 100, width: double.infinity))]),
-                const SizedBox(height: 12),
-                const SkeletonLoader(height: 80, width: double.infinity),
-                const SizedBox(height: 16),
-                const SkeletonLoader(height: 200, width: double.infinity),
-              ],
+          // Keep the header so it doesn't "jump" when data loads
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment.topCenter, 
+              child: ClipPath(
+                clipper: HeaderClipper(), 
+                child: Container(height: 260, color: AppColors.primary)
+              )
+            )
+          ),
+          
+          // Simple centered spinner instead of "squares"
+          const Center(
+            child: CircularProgressIndicator(
+              color: Colors.white, // White looks good against the blue header or center
+              strokeWidth: 3,
             ),
           ),
         ],
@@ -123,7 +145,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return StreamBuilder<double>(
       stream: _budgetStream,
       builder: (context, budgetSnapshot) {
-        if (budgetSnapshot.connectionState == ConnectionState.waiting) return Scaffold(backgroundColor: AppColors.background, body: _buildLoadingDashboard());
+        if (budgetSnapshot.connectionState == ConnectionState.waiting) return _buildLoadingDashboard();
         final double manualCapital = budgetSnapshot.data ?? 0.00;
 
         return StreamBuilder<String>(
@@ -139,79 +161,91 @@ class _DashboardPageState extends State<DashboardPage> {
                 return StreamBuilder<List<InventoryItem>>(
                   stream: _lowStockStream,
                   builder: (context, stockSnapshot) {
+                    if (stockSnapshot.connectionState == ConnectionState.waiting) return _buildLoadingDashboard();
+                    
                     final lowStockItems = stockSnapshot.data ?? [];
 
-                    double totalExpenses = 0.0;
-                    double totalIncome = 0.0;
-                    double pendingIncome = 0.0;
-                    double pendingExpense = 0.0;
-                    List<double> chartValues = [];
-                    List<String> chartDates = [];
-                    List<Expense> allExpensesList = [];
+                    return StreamBuilder<List<InventoryItem>>(
+                      stream: _inventoryStream,
+                      builder: (context, inventorySnapshot) {
+                        if (inventorySnapshot.connectionState == ConnectionState.waiting) return _buildLoadingDashboard();
 
-                    if (expenseSnapshot.hasData) {
-                      final all = expenseSnapshot.data!.toList();
-                      allExpensesList = all; // Pass this to child
-                      totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
-                      totalExpenses = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
-                      pendingIncome = all.where((e) => e.isIncome && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
-                      pendingExpense = all.where((e) => !e.isIncome && !e.isCapital && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
-                      
-                      final chartData = _getChartData(all);
-                      chartValues = chartData['values'];
-                      chartDates = chartData['dates'];
-                    }
+                        final allProducts = inventorySnapshot.data ?? [];
 
-                    final List<Widget> pages = [
-                      _DashboardContent(
-                        manualCapital: manualCapital,
-                        userName: userName,
-                        lowStockItems: lowStockItems,
-                        allExpenses: allExpensesList, //Passing all expenses for price lookup
-                        totalIncome: totalIncome,
-                        totalExpenses: totalExpenses,
-                        pendingIncome: pendingIncome,
-                        pendingExpense: pendingExpense,
-                        chartValues: chartValues,
-                        chartDates: chartDates,
-                        onUpdateCapital: _updateBudget,
-                        onSignOut: _signOut,
-                        selectedRange: _selectedChartRange,
-                        onRangeChanged: (range) => setState(() => _selectedChartRange = range),
-                      ),
-                      AllExpensesPage(onBackTap: () => _onItemTapped(0)),
-                      ReportsPage(onBackTap: () => _onItemTapped(0)),
-                    ];
+                        double totalExpenses = 0.0;
+                        double totalIncome = 0.0;
+                        double pendingIncome = 0.0;
+                        double pendingExpense = 0.0;
+                        List<double> chartValues = [];
+                        List<String> chartDates = [];
+                        List<Expense> allExpensesList = [];
 
-                    return Scaffold(
-                      backgroundColor: AppColors.background,
-                      body: pages[_selectedIndex],
-                      bottomNavigationBar: BottomNavigationBar(
-                        items: const [
-                          BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-                          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Records'),
-                          BottomNavigationBarItem(icon: Icon(Icons.pie_chart_outline), label: 'Reports'),
-                        ],
-                        currentIndex: _selectedIndex,
-                        onTap: _onItemTapped,
-                        selectedItemColor: AppColors.primary,
-                        unselectedItemColor: AppColors.textSecondary,
-                        backgroundColor: Colors.white,
-                        type: BottomNavigationBarType.fixed,
-                        showUnselectedLabels: true,
-                        elevation: 15,
-                      ),
-                      // 🔥 UPDATED: Wrapped FAB in Padding to move it higher
-                      floatingActionButton: Padding(
-                        padding: const EdgeInsets.only(bottom: 60.0), // Moves FAB up above navigation/content
-                        child: FloatingActionButton(
-                          backgroundColor: AppColors.primary,
-                          heroTag: 'add_expense_btn',
-                          onPressed: () => Navigator.pushNamed(context, '/add_expense'),
-                          child: const Icon(Icons.add, color: Colors.white, size: 30),
-                        ),
-                      ),
-                      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+                        if (expenseSnapshot.hasData) {
+                          final all = expenseSnapshot.data!.toList();
+                          allExpensesList = all; 
+                          totalIncome = all.where((e) => e.isIncome && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+                          totalExpenses = all.where((e) => !e.isIncome && !e.isCapital && e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+                          pendingIncome = all.where((e) => e.isIncome && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+                          pendingExpense = all.where((e) => !e.isIncome && !e.isCapital && !e.isPaid).fold(0.0, (sum, item) => sum + item.amount);
+                          
+                          final chartData = _getChartData(all);
+                          chartValues = chartData['values'];
+                          chartDates = chartData['dates'];
+                        }
+
+                        final List<Widget> pages = [
+                          _DashboardContent(
+                            manualCapital: manualCapital,
+                            userName: userName,
+                            lowStockItems: lowStockItems,
+                            allProducts: allProducts,
+                            allExpenses: allExpensesList, 
+                            totalIncome: totalIncome,
+                            totalExpenses: totalExpenses,
+                            pendingIncome: pendingIncome,
+                            pendingExpense: pendingExpense,
+                            chartValues: chartValues,
+                            chartDates: chartDates,
+                            onUpdateCapital: _updateBudget,
+                            onSignOut: _signOut,
+                            selectedRange: _selectedChartRange,
+                            onRangeChanged: (range) => setState(() => _selectedChartRange = range),
+                            onRefresh: _refreshData,
+                          ),
+                          AllExpensesPage(onBackTap: () => _onItemTapped(0)),
+                          ReportsPage(onBackTap: () => _onItemTapped(0)),
+                        ];
+
+                        return Scaffold(
+                          backgroundColor: AppColors.background,
+                          body: pages[_selectedIndex],
+                          bottomNavigationBar: BottomNavigationBar(
+                            items: const [
+                              BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+                              BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Records'),
+                              BottomNavigationBarItem(icon: Icon(Icons.pie_chart_outline), label: 'Reports'),
+                            ],
+                            currentIndex: _selectedIndex,
+                            onTap: _onItemTapped,
+                            selectedItemColor: AppColors.primary,
+                            unselectedItemColor: AppColors.textSecondary,
+                            backgroundColor: Colors.white,
+                            type: BottomNavigationBarType.fixed,
+                            showUnselectedLabels: true,
+                            elevation: 15,
+                          ),
+                          floatingActionButton: Padding(
+                            padding: const EdgeInsets.only(bottom: 60.0), 
+                            child: FloatingActionButton(
+                              backgroundColor: AppColors.primary,
+                              heroTag: 'add_expense_btn',
+                              onPressed: () => Navigator.pushNamed(context, '/add_expense'),
+                              child: const Icon(Icons.add, color: Colors.white, size: 30),
+                            ),
+                          ),
+                          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+                        );
+                      }
                     );
                   }
                 );
@@ -228,7 +262,8 @@ class _DashboardContent extends StatelessWidget {
   final double manualCapital;
   final String userName;
   final List<InventoryItem> lowStockItems;
-  final List<Expense> allExpenses; // 🔥 NEW
+  final List<InventoryItem> allProducts; 
+  final List<Expense> allExpenses; 
   final double totalIncome;
   final double totalExpenses;
   final double pendingIncome;
@@ -239,12 +274,14 @@ class _DashboardContent extends StatelessWidget {
   final VoidCallback onSignOut;
   final ChartTimeRange selectedRange;
   final ValueChanged<ChartTimeRange> onRangeChanged;
+  final Future<void> Function() onRefresh;
 
   const _DashboardContent({
     required this.manualCapital,
     required this.userName,
     required this.lowStockItems, 
-    required this.allExpenses, // 🔥 NEW
+    required this.allProducts,
+    required this.allExpenses,
     required this.totalIncome,
     required this.totalExpenses,
     required this.pendingIncome,
@@ -255,6 +292,7 @@ class _DashboardContent extends StatelessWidget {
     required this.onSignOut,
     required this.selectedRange,
     required this.onRangeChanged,
+    required this.onRefresh,
   });
 
   @override
@@ -266,63 +304,77 @@ class _DashboardContent extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(child: Align(alignment: Alignment.topCenter, child: ClipPath(clipper: HeaderClipper(), child: Container(height: 260, color: AppColors.primary)))),
-          SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              children: [
-                HeaderTitle(onSignOut: onSignOut, userName: userName), 
-                const SizedBox(height: 20),
-
-                if (lowStockItems.isNotEmpty) ...[
-                  // 🔥 UPDATED: Pass expenses to card
-                  LowStockCard(items: lowStockItems, allExpenses: allExpenses),
-                  const SizedBox(height: 16),
-                ],
-                
-                TotalBudgetCard(currentBudget: manualCapital, onBudgetChanged: onUpdateCapital),
-                const SizedBox(height: 12),
-                
-                Row(children: [
-                  Expanded(child: _buildStatCard("Net Profit", netProfit, netProfit >= 0 ? AppColors.success : AppColors.expense)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildStatCard("Total Sales", totalIncome, AppColors.success)),
-                ]),
-                const SizedBox(height: 12),
-                
-                _buildStatCard("Total Expenses", totalExpenses, AppColors.expense, fullWidth: true),
-                const SizedBox(height: 12),
-
-                if (pendingIncome > 0 || pendingExpense > 0) ...[
-                   Row(children: [
-                      if (pendingIncome > 0) Expanded(child: _buildStatCard("To Collect", pendingIncome, Colors.orange, isSmall: true)),
-                      if (pendingIncome > 0 && pendingExpense > 0) const SizedBox(width: 12),
-                      if (pendingExpense > 0) Expanded(child: _buildStatCard("To Pay", pendingExpense, Colors.redAccent, isSmall: true)),
-                   ]),
-                   const SizedBox(height: 12),
-                ],
-
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppColors.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.secondary.withOpacity(0.5))),
-                  child: Row(children: [
-                    const Icon(Icons.account_balance_wallet, color: AppColors.primary),
+          
+          RefreshIndicator(
+            onRefresh: onRefresh,
+            color: AppColors.primary,
+            backgroundColor: Colors.white,
+            displacement: 40, 
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                children: [
+                  HeaderTitle(onSignOut: onSignOut, userName: userName), 
+                  const SizedBox(height: 20),
+            
+                  if (lowStockItems.isNotEmpty) ...[
+                    LowStockCard(items: lowStockItems, allExpenses: allExpenses),
+                    const SizedBox(height: 16),
+                  ],
+                  
+                  TotalBudgetCard(currentBudget: manualCapital, onBudgetChanged: onUpdateCapital),
+                  const SizedBox(height: 12),
+                  
+                  Row(children: [
+                    Expanded(child: _buildStatCard("Net Profit", netProfit, netProfit >= 0 ? AppColors.success : AppColors.expense)),
                     const SizedBox(width: 12),
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("Cash on Hand", style: TextStyle(fontSize: 12, color: AppColors.textPrimary)), Text("₱${cashOnHand.toStringAsFixed(2)}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary))])
+                    Expanded(child: _buildStatCard("Total Sales", totalIncome, AppColors.success)),
                   ]),
-                ),
-
-                const SizedBox(height: 16),
-                
-                SpendingOverviewCard(
-                  spendingPoints: chartValues, 
-                  dateLabels: chartDates,
-                  selectedRange: selectedRange,
-                  onRangeChanged: onRangeChanged,
-                ),
-                
-                const SizedBox(height: 80), 
-              ],
+                  const SizedBox(height: 12),
+                  
+                  _buildStatCard("Total Expenses", totalExpenses, AppColors.expense, fullWidth: true),
+                  const SizedBox(height: 12),
+            
+                  if (pendingIncome > 0 || pendingExpense > 0) ...[
+                     Row(children: [
+                        if (pendingIncome > 0) Expanded(child: _buildStatCard("To Collect", pendingIncome, Colors.orange, isSmall: true)),
+                        if (pendingIncome > 0 && pendingExpense > 0) const SizedBox(width: 12),
+                        if (pendingExpense > 0) Expanded(child: _buildStatCard("To Pay", pendingExpense, Colors.redAccent, isSmall: true)),
+                     ]),
+                     const SizedBox(height: 12),
+                  ],
+            
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: AppColors.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.secondary.withOpacity(0.5))),
+                    child: Row(children: [
+                      const Icon(Icons.account_balance_wallet, color: AppColors.primary),
+                      const SizedBox(width: 12),
+                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("Cash on Hand", style: TextStyle(fontSize: 12, color: AppColors.textPrimary)), Text("₱${cashOnHand.toStringAsFixed(2)}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary))])
+                    ]),
+                  ),
+            
+                  const SizedBox(height: 16),
+                  
+                  SpendingOverviewCard(
+                    spendingPoints: chartValues, 
+                    dateLabels: chartDates,
+                    selectedRange: selectedRange,
+                    onRangeChanged: onRangeChanged,
+                  ),
+            
+                  const SizedBox(height: 16),
+            
+                  if (allProducts.isNotEmpty) ...[
+                     ProductListCard(items: allProducts, allExpenses: allExpenses),
+                     const SizedBox(height: 16),
+                  ],
+                  
+                  const SizedBox(height: 80), 
+                ],
+              ),
             ),
           ),
         ],
