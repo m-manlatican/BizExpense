@@ -13,7 +13,6 @@ class AuthService {
     return await _auth.signInWithEmailAndPassword(email: email, password: password);
   }
 
-  // 🔥 UPDATED: Separate First and Last Name
   Future<UserCredential> register({
     required String email, 
     required String password, 

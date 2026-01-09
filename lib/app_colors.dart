@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // 🔥 THEME BASE: "Cloud Dancer" (Pantone 11-4201 approx)
+  // THEME BASE: "Cloud Dancer" (Pantone 11-4201 approx)
   // We use this for the background to give that airy, 2026 feel.
   static const Color background = Color(0xFFF0EEE9); 
 
-  // 🔥 THE PARTNER: "Deep Spruce" 
+  // THE PARTNER: "Deep Spruce" 
   // A rich, dark teal that grounds the airy background. 
   // Represents wealth, stability, and modern luxury.
   static const Color primary = Color(0xFF264653); 

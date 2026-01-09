@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 
 class LowStockCard extends StatelessWidget {
   final List<InventoryItem> items;
-  final List<Expense> allExpenses; // 🔥 NEW: Needed to calculate original price
+  final List<Expense> allExpenses;
 
   const LowStockCard({
     super.key, 
@@ -45,19 +45,16 @@ class LowStockCard extends StatelessWidget {
           const SizedBox(height: 12),
           ...items.map((item) {
             
-            // 🔥 LOGIC: Find last purchase price for this item
             double? lastPrice;
             try {
-              // Find the most recent expense with this title
-              // (List is already sorted by date desc in dashboard, but we can play safe)
               final matching = allExpenses.where((e) => 
                   e.title.toLowerCase() == item.name.toLowerCase() && 
-                  !e.isIncome && // Must be an expense
-                  !e.isCapital   // Not capital
+                  !e.isIncome && 
+                  !e.isCapital   
               );
               
               if (matching.isNotEmpty) {
-                 final lastExp = matching.first; // Most recent
+                 final lastExp = matching.first; 
                  if (lastExp.quantity != null && lastExp.quantity! > 0) {
                    lastPrice = lastExp.amount / lastExp.quantity!;
                  } else {
@@ -65,7 +62,6 @@ class LowStockCard extends StatelessWidget {
                  }
               }
             } catch (e) {
-              // Fallback
               lastPrice = null;
             }
 
@@ -100,7 +96,6 @@ class LowStockCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     
-                    // 🔥 IGNORE BUTTON
                     InkWell(
                       onTap: () => _ignoreItem(context, item.id),
                       borderRadius: BorderRadius.circular(8),
@@ -111,10 +106,8 @@ class LowStockCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
 
-                    // 🔥 RESTOCK BUTTON
                     InkWell(
                       onTap: () {
-                        // Open AddExpensePage with pre-filled data
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -122,7 +115,7 @@ class LowStockCard extends StatelessWidget {
                               prefillTitle: item.name,          
                               prefillCategory: 'Inventory',     
                               prefillType: TransactionType.expense,
-                              prefillPrice: lastPrice, // 🔥 Pass calculated price
+                              prefillPrice: lastPrice, 
                             ),
                           ),
                         );

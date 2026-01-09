@@ -132,9 +132,7 @@ class _EditExpensePageState extends State<EditExpensePage> {
     setState(() => isLoading = true); 
 
     try {
-      // ---------------------------------------------------------
       // INVENTORY SYNC LOGIC
-      // ---------------------------------------------------------
       bool isInventoryCat(String c) => c == 'Inventory' || c == 'Product';
 
       final String oldCategory = widget.expense.category;

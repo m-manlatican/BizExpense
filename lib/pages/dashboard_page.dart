@@ -11,7 +11,6 @@ import 'package:expense_tracker_3_0/services/auth_service.dart';
 import 'package:expense_tracker_3_0/services/firestore_service.dart';
 import 'package:expense_tracker_3_0/widgets/head_clipper.dart';
 import 'package:expense_tracker_3_0/widgets/header_title.dart';
-// REMOVED: import 'package:expense_tracker_3_0/widgets/skeleton_loader.dart'; // No longer needed
 import 'package:flutter/material.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -49,7 +48,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _refreshData() async {
-    // Reduced delay for snappier feel
     await Future.delayed(const Duration(milliseconds: 500));
     setState(() {
       _initStreams(); 
@@ -111,7 +109,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (confirm == true) await _authService.signOut();
   }
 
-  // 🔥 UPDATED: Much simpler, cleaner loading screen
+  // Loading screen
   Widget _buildLoadingDashboard() {
     return Scaffold( // Use Scaffold to ensure proper white background
       backgroundColor: AppColors.background,

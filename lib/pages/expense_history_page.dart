@@ -50,7 +50,7 @@ class ExpenseHistoryPage extends StatelessWidget {
                 InkWell(onTap: () => Navigator.pop(context), borderRadius: BorderRadius.circular(12), child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.arrow_back, color: Colors.white, size: 20))),
                 const Expanded(child: Center(child: Text("History (Deleted)", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)))),
                 
-                // 🔥 Clear All Button
+                // Clear All Button
                 InkWell(onTap: () => _confirmClearAll(context), borderRadius: BorderRadius.circular(12), child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.delete_sweep, color: Colors.white, size: 20))),
               ],
             ),
@@ -64,7 +64,7 @@ class ExpenseHistoryPage extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator(color: AppColors.primary));
                 }
                 
-                // 🔥 SHOW ONLY DELETED ITEMS
+                // SHOW ONLY DELETED ITEMS
                 final deletedExpenses = (snapshot.data ?? []).where((e) => e.isDeleted).toList();
 
                 if (deletedExpenses.isEmpty) {

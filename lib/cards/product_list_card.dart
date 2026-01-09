@@ -19,13 +19,9 @@ class ProductListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
 
-    // 🔥 PERFORMANCE OPTIMIZATION:
-    // Create a lookup map for the latest prices so we don't loop through
-    // 1000s of expenses for every single product row.
+
     final Map<String, double> priceMap = {};
     
-    // Expenses are already sorted by date descending (newest first).
-    // We just grab the first expense for each product name.
     for (var e in allExpenses) {
       if (!e.isIncome && !e.isCapital) {
         final key = e.title.toLowerCase();

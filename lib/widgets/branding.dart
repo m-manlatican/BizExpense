@@ -6,7 +6,6 @@ class Branding extends StatelessWidget {
   final double fontSize;
   final Color? color;
   final bool vertical; 
-  // 🔥 NEW: Explicit control to force a specific logo version
   final bool? isLightLogo; 
 
   const Branding({
@@ -15,16 +14,13 @@ class Branding extends StatelessWidget {
     this.fontSize = 32,
     this.color,
     this.vertical = true,
-    this.isLightLogo, // If true, forces Light. If false, forces Dark.
+    this.isLightLogo, 
   });
 
   @override
   Widget build(BuildContext context) {
     final themeColor = color ?? AppColors.primary;
 
-    // 🔥 LOGIC: 
-    // 1. If isLightLogo is explicitly set (true/false), use it.
-    // 2. Otherwise, calculate based on text color brightness.
     final bool useLight = isLightLogo ?? (themeColor.computeLuminance() > 0.5);
     
     final String assetName = useLight ? 'assets/logo_light.png' : 'assets/logo_dark.png';
@@ -40,7 +36,6 @@ class Branding extends StatelessWidget {
           height: iconSize * 1.5,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
-            // Fallback to icon if image missing
             return Icon(Icons.business_center, size: iconSize, color: themeColor);
           },
         ),

@@ -62,8 +62,7 @@ class ReportsPage extends StatelessWidget {
                 
                 final allTransactions = snapshot.data ?? [];
                 
-                // 🔥 LOGIC UPDATE: Use ALL transactions (including deleted) for reports.
-                // This ensures swiped items still count towards Profit/Loss.
+
                 final calculationTransactions = allTransactions; 
                 
                 // Separate Income & Expenses

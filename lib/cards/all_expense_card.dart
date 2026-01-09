@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 class ExpenseCard extends StatelessWidget {
   final Expense expense;
   final VoidCallback onEdit;
-  // 🔥 NEW: Callback for the shortcut button
   final VoidCallback? onMarkAsPaid;
 
   const ExpenseCard({
@@ -95,11 +94,9 @@ class ExpenseCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           
-          // 🔥 ACTION BUTTONS ROW
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              // Show "Mark Paid" button ONLY if pending
               if (!expense.isPaid && onMarkAsPaid != null && !expense.isCapital) ...[
                 InkWell(
                   onTap: onMarkAsPaid,

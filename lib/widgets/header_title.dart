@@ -19,13 +19,12 @@ class HeaderTitle extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-             // 🔥 UPDATED: Explicitly Force Light Logo
              const Branding(
               iconSize: 20, 
               fontSize: 14, 
               color: Colors.white70,
               vertical: false,
-              isLightLogo: true, // <--- This forces 'assets/logo_light.png'
+              isLightLogo: true, 
             ),
             const SizedBox(height: 4),
             Text(

@@ -54,7 +54,7 @@ class AvailableBudgetCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '₱${balance.toStringAsFixed(2)}', // 🔥 CHANGED TO PESO
+                  '₱${balance.toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,

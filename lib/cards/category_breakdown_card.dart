@@ -24,9 +24,6 @@ class CategoryBreakdownCard extends StatelessWidget {
     for (var e in expenses) {
       categoryTotals[e.category] = (categoryTotals[e.category] ?? 0) + e.amount;
       
-      // 🔥 OPTIMIZED: Fetch the latest color definition from the Model.
-      // This ensures the Pie Chart uses your NEW colors immediately, 
-      // instead of using the old colors stored in the database.
       categoryColors[e.category] = Expense.getCategoryDetails(e.category)['color'] as Color;
     }
 

@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 
 class TotalBudgetCard extends StatefulWidget {
   final double currentBudget;
-  // 🔥 Restore the callback
   final Function(double) onBudgetChanged;
 
   const TotalBudgetCard({

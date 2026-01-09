@@ -178,7 +178,7 @@ class FirestoreService {
     await ref.doc(id).update({'isDeleted': false});
   }
 
-  // 🔥 UPDATED: Ensures the expense is deleted even if stock update fails
+  // Ensures the expense is deleted even if stock update fails
   Future<void> permanentlyDeleteExpense(String id) async {
     final ref = _userDoc?.collection('expenses');
     if (ref == null) throw Exception("User not logged in");

@@ -3,7 +3,6 @@ import 'package:expense_tracker_3_0/cards/white_card.dart';
 import 'package:expense_tracker_3_0/widgets/line_chart_painter.dart';
 import 'package:flutter/material.dart';
 
-// 🔥 UPDATED: Removed 'day'
 enum ChartTimeRange { week, month }
 
 class SpendingOverviewCard extends StatelessWidget {
@@ -22,7 +21,6 @@ class SpendingOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Ensure we have at least 2 points to draw a line
     final points = spendingPoints.isEmpty ? [0.0, 0.0] : spendingPoints;
     
     final double growth = points.last - points.first;

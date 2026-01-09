@@ -9,7 +9,6 @@ class Expense {
   final String dateLabel;
   final Timestamp date;
   final String notes;
-  // 🔥 REMOVED: iconCodePoint & iconColorValue (Caused Release Error)
   final bool isDeleted;
   final bool isIncome;
   final bool isCapital;
@@ -25,7 +24,6 @@ class Expense {
     required this.dateLabel,
     required this.date,
     required this.notes,
-    // 🔥 REMOVED: No longer required in constructor
     this.isDeleted = false,
     this.isIncome = false,
     this.isCapital = false,
@@ -90,7 +88,6 @@ class Expense {
       'dateLabel': dateLabel,
       'date': date,
       'notes': notes,
-      // 🔥 REMOVED: iconCodePoint/iconColorValue
       'isDeleted': isDeleted,
       'isIncome': isIncome,
       'isCapital': isCapital,
@@ -109,7 +106,6 @@ class Expense {
       dateLabel: map['dateLabel'] ?? '',
       date: map['date'] as Timestamp? ?? Timestamp.now(),
       notes: map['notes'] ?? '',
-      // 🔥 REMOVED: Reading icon integers
       isDeleted: map['isDeleted'] ?? false,
       isIncome: map['isIncome'] ?? false,
       isCapital: map['isCapital'] ?? false,
@@ -119,7 +115,6 @@ class Expense {
     );
   }
 
-  // 🔥 NEW SAFE GETTERS
   IconData get icon => getCategoryDetails(category)['icon'] as IconData;
   Color get iconColor => getCategoryDetails(category)['color'] as Color;
 }

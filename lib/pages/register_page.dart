@@ -12,7 +12,6 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  // 🔥 Split Controllers
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
@@ -73,7 +72,6 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       setState(() => isLoading = true);
       
-      // 🔥 SRP: Call Service with separate names
       await _authService.register(
         email: email, 
         password: password, 
@@ -130,7 +128,7 @@ class _RegisterPageState extends State<RegisterPage> {
               const Text("Start tracking your business finances today.", style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
               const SizedBox(height: 40),
               
-              // 🔥 First Name & Last Name
+              // First Name & Last Name
               Row(
                 children: [
                   Expanded(
@@ -159,7 +157,6 @@ class _RegisterPageState extends State<RegisterPage> {
                         RoundedTextField(
                           controller: lastNameController,
                           hintText: "Doe",
-                          // prefix: const Icon(Icons.person_outline), // Optional to remove icon to save space
                           errorText: _lastNameError,
                           onChanged: (_) => setState(() => _lastNameError = null),
                         ),

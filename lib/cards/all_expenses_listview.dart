@@ -8,7 +8,6 @@ class AllExpensesListView extends StatelessWidget {
   final void Function(Expense) onEdit;
   final void Function(Expense) onDelete;
   final void Function(Expense)? onMarkAsPaid;
-  // 🔥 NEW: Custom message for empty state
   final String emptyMessage;
 
   const AllExpensesListView({
@@ -17,14 +16,13 @@ class AllExpensesListView extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     this.onMarkAsPaid,
-    this.emptyMessage = "No transactions yet", // Default value
+    this.emptyMessage = "No transactions yet", 
   });
 
   @override
   Widget build(BuildContext context) {
     if (expenses.isEmpty) {
       return Center(
-        // 🔥 UPDATED: Use the custom message
         child: Text(emptyMessage, style: const TextStyle(color: Colors.grey)),
       );
     }

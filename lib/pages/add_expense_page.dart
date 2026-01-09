@@ -170,8 +170,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
       }
     }
 
-    // 🔥 UPDATED: Logic moved BEFORE setting isLoading
-    // If it's an expense for Inventory/Product, ask for confirmation.
+
     if (_type == TransactionType.expense && (selectedCategory == "Inventory" || selectedCategory == "Product")) {
        bool? confirm = await showDialog<bool>(
          context: context,
@@ -191,7 +190,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
          )
        );
 
-       // 🔥 FIX: If user clicks "No" (false) or dismisses dialog (null), STOP everything.
        if (confirm != true) {
          return; 
        }
@@ -205,7 +203,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
          await _firestoreService.updateStock(title, -(finalQty ?? 1)); 
       } 
       else if (_type == TransactionType.expense && (selectedCategory == "Inventory" || selectedCategory == "Product")) {
-         // We already confirmed above, so proceed directly.
          await _firestoreService.updateStock(title, finalQty ?? 1);
       }
 

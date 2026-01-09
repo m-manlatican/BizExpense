@@ -61,8 +61,7 @@ class _ExpenseFilterModalState extends State<ExpenseFilterModal> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 FIX: Wrapped contents in SingleChildScrollView to fix the "Bottom overflowed by 39 pixels" error.
-    // Also added SafeArea to ensure it doesn't get cut off by phone notches/home bars.
+
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.all(24),

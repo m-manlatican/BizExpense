@@ -29,8 +29,7 @@ class AllExpensesPageState extends State<AllExpensesPage> {
   @override
   void initState() {
     super.initState();
-    // 🔥 FIX: Use addPostFrameCallback to ensure the widget is fully built
-    // before we try to show any SnackBars or access context/prefs.
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndShowSwipeHint();
     });
@@ -45,8 +44,7 @@ class AllExpensesPageState extends State<AllExpensesPage> {
       
       if (hasDismissedHint) return;
 
-      // 🔥 OPTIMIZED: Small delay to let the enter animation finish 
-      // so the user actually sees the screen before the popup appears.
+
       await Future.delayed(const Duration(milliseconds: 500));
       
       if (!mounted) return;

@@ -1,7 +1,7 @@
 import 'package:expense_tracker_3_0/firebase_options.dart';
 import 'package:expense_tracker_3_0/pages/splash_screen.dart';
 import 'package:expense_tracker_3_0/routes.dart'; 
-import 'package:expense_tracker_3_0/app_theme.dart'; // Import the new theme file
+import 'package:expense_tracker_3_0/app_theme.dart'; 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'BizExpense',
-      theme: AppTheme.lightTheme, // Optimized: Use the separated theme
+      theme: AppTheme.lightTheme, 
       home: const SplashScreen(),
       onGenerateRoute: RouteGenerator.generateRoute,
     );

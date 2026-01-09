@@ -49,7 +49,7 @@ class TotalSpentCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '₱${spentAmount.toStringAsFixed(2)}', // 🔥 CHANGED TO PESO
+            '₱${spentAmount.toStringAsFixed(2)}', 
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,

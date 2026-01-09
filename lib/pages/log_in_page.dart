@@ -104,7 +104,7 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Center(
-                  // 🔥 UPDATED: Specifically request Dark Logo
+                  // Specifically request Dark Logo
                   child: Branding(
                     iconSize: 60,
                     fontSize: 32,
